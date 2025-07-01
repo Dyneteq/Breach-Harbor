@@ -1,5 +1,0 @@
-[MASTER]
-load-plugins=pylint_django
-
-[MESSAGES CONTROL]
-disable=C0103,C0114,C0115,C0116,R0911

@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: rest-framework-simplejwt
+Version: 0.0.2
+Summary: PoC of pipreqs dependency confusion
+Author-email: maksym.vatsyk17@gmail.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+This package was created to prevent package name-based dependency confusion in pipreqs.

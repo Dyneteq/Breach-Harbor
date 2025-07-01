@@ -1,0 +1,28 @@
+{{define "content"}}
+<div class="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+    <div class="text-center">
+        <div class="mb-4">
+            <i class="fas fa-exclamation-triangle text-warning" style="font-size: 4rem;"></i>
+        </div>
+        
+        <h1 class="h2 fw-bold text-dark mb-3">Oops! Something went wrong</h1>
+        
+        {{if .error}}
+        <div class="alert alert-danger d-inline-block">
+            <i class="fas fa-info-circle me-2"></i>{{.error}}
+        </div>
+        {{else}}
+        <p class="text-muted mb-4">An unexpected error occurred. Please try again.</p>
+        {{end}}
+        
+        <div class="mt-4">
+            <a href="/dashboard" class="btn btn-primary me-2">
+                <i class="fas fa-home me-2"></i>Go to Dashboard
+            </a>
+            <button onclick="history.back()" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Go Back
+            </button>
+        </div>
+    </div>
+</div>
+{{end}}

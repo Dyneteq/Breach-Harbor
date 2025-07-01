@@ -1,0 +1,193 @@
+{{define "content"}}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="/incidents">Incidents</a></li>
+                    <li class="breadcrumb-item active">Incident #{{.incident.ID}}</li>
+                </ol>
+            </nav>
+            
+            <h1 class="h3 fw-bold">
+                <i class="fas fa-exclamation-triangle me-2 text-danger"></i>
+                Incident Details
+            </h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Incident Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">Incident ID</label>
+                            <div class="fw-bold">#{{.incident.ID}}</div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">Type</label>
+                            <div>
+                                <span class="badge bg-danger">{{.incident.IncidentType}}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">Date & Time</label>
+                            <div class="fw-bold">{{.incident.CreatedAt.Format "January 2, 2006 at 15:04:05"}}</div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">Collector</label>
+                            <div>
+                                <span class="badge bg-secondary">{{.incident.Collector.Name}}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Metadata Section -->
+            {{if .incident.Metadata}}
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-code me-2"></i>Event Metadata
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded"><code>{{range $key, $value := .incident.Metadata}}{{$key}}: {{$value}}
+{{end}}</code></pre>
+                </div>
+            </div>
+            {{end}}
+        </div>
+
+        <div class="col-lg-4">
+            <!-- IP Address Information -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-network-wired me-2"></i>Source IP
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted">IP Address</label>
+                        <div>
+                            <code class="text-primary fs-5">{{.incident.IPAddress.IP}}</code>
+                        </div>
+                    </div>
+                    
+                    {{if .incident.IPAddress.Location}}
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Location</label>
+                        <div class="d-flex align-items-center">
+                            <span class="flag-icon flag-icon-{{.incident.IPAddress.Location.CountryCode | lower}} me-2"></span>
+                            <div>
+                                {{if .incident.IPAddress.Location.City}}
+                                <div>{{.incident.IPAddress.Location.City}}</div>
+                                {{end}}
+                                <small class="text-muted">{{.incident.IPAddress.Location.CountryName}}</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {{if .incident.IPAddress.Location.ISP}}
+                    <div class="mb-3">
+                        <label class="form-label text-muted">ISP</label>
+                        <div>{{.incident.IPAddress.Location.ISP}}</div>
+                    </div>
+                    {{end}}
+
+                    <!-- Threat Indicators -->
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Threat Indicators</label>
+                        <div>
+                            {{if .incident.IPAddress.Location.IsAnonymousProxy}}
+                            <span class="badge bg-warning me-1">
+                                <i class="fas fa-user-secret me-1"></i>Anonymous Proxy
+                            </span>
+                            {{end}}
+                            {{if .incident.IPAddress.Location.IsTorExitNode}}
+                            <span class="badge bg-dark me-1">
+                                <i class="fas fa-mask me-1"></i>Tor Exit Node
+                            </span>
+                            {{end}}
+                            {{if .incident.IPAddress.Location.IsHostingProvider}}
+                            <span class="badge bg-info me-1">
+                                <i class="fas fa-server me-1"></i>Hosting Provider
+                            </span>
+                            {{end}}
+                            {{if not (or .incident.IPAddress.Location.IsAnonymousProxy .incident.IPAddress.Location.IsTorExitNode .incident.IPAddress.Location.IsHostingProvider)}}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check me-1"></i>No known threats
+                            </span>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+
+                    <div class="d-grid">
+                        <a href="/ip-addresses/{{.incident.IPAddress.IP}}" class="btn btn-outline-primary">
+                            <i class="fas fa-search me-2"></i>View IP Details
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tools me-2"></i>Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="window.print()">
+                            <i class="fas fa-print me-2"></i>Print Report
+                        </button>
+                        
+                        <button class="btn btn-outline-success" onclick="exportIncident()">
+                            <i class="fas fa-download me-2"></i>Export JSON
+                        </button>
+                        
+                        <a href="/incidents" class="btn btn-outline-secondary">
+                            <i class="fas fa-list me-2"></i>Back to Incidents
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function exportIncident() {
+    const incident = {
+        id: {{.incident.ID}},
+        type: "{{.incident.IncidentType}}",
+        timestamp: "{{.incident.CreatedAt}}",
+        ip_address: "{{.incident.IPAddress.IP}}",
+        collector: "{{.incident.Collector.Name}}",
+        metadata: {{.incident.Metadata}}
+    };
+    
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(incident, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "incident_{{.incident.ID}}.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+}
+</script>
+{{end}}

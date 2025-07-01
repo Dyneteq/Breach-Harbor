@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .title}}{{.title}}{{else}}BREACH::HARBOR{{end}}</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/main.css" rel="stylesheet">
+    
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="/dashboard">
+                <i class="fas fa-shield-alt me-2"></i>BREACH::HARBOR
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/dashboard">
+                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/collectors">
+                            <i class="fas fa-satellite-dish me-1"></i>Collectors
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/incidents">
+                            <i class="fas fa-exclamation-triangle me-1"></i>Incidents
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/ip-addresses">
+                            <i class="fas fa-network-wired me-1"></i>IP Addresses
+                        </a>
+                    </li>
+                </ul>
+                
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user me-1"></i>Account
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/profile">Profile</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="logout()">Logout</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container-fluid py-4">
+        <div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 fw-bold">
+                <i class="fas fa-tachometer-alt me-2 text-primary"></i>Security Dashboard
+            </h1>
+            <p class="text-muted">Real-time threat monitoring and analysis</p>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-danger bg-opacity-10 rounded p-3">
+                                <i class="fas fa-exclamation-triangle text-danger fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="text-muted small">Total Incidents</div>
+                            <div class="h4 fw-bold mb-0">{{.stats.TotalIncidents}}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-warning bg-opacity-10 rounded p-3">
+                                <i class="fas fa-clock text-warning fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="text-muted small">Last 24 Hours</div>
+                            <div class="h4 fw-bold mb-0">{{.stats.Last24HourIncidents}}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-info bg-opacity-10 rounded p-3">
+                                <i class="fas fa-network-wired text-info fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="text-muted small">Unique IP Addresses</div>
+                            <div class="h4 fw-bold mb-0">{{.stats.TotalIPAddresses}}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-success bg-opacity-10 rounded p-3">
+                                <i class="fas fa-satellite-dish text-success fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="text-muted small">Active Collectors</div>
+                            <div class="h4 fw-bold mb-0">{{.stats.TotalCollectors}}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Recent Incidents -->
+        <div class="col-lg-8 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Recent Incidents
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {{if .stats.RecentIncidents}}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Type</th>
+                                    <th>Source IP</th>
+                                    <th>Location</th>
+                                    <th>Collector</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{range .stats.RecentIncidents}}
+                                <tr style="cursor: pointer;" onclick="window.location='/incidents/{{.ID}}'">
+                                    <td>
+                                        <small class="text-muted">{{.CreatedAt.Format "Jan 2, 15:04"}}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-danger">{{.IncidentType}}</span>
+                                    </td>
+                                    <td>
+                                        <code>{{.IPAddress.IP}}</code>
+                                    </td>
+                                    <td>
+                                        <small>
+                                            {{if .IPAddress.Location.City}}{{.IPAddress.Location.City}}, {{end}}
+                                            {{.IPAddress.Location.CountryName}}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{.Collector.Name}}</small>
+                                    </td>
+                                </tr>
+                                {{end}}
+                            </tbody>
+                        </table>
+                    </div>
+                    {{else}}
+                    <div class="text-center py-5">
+                        <i class="fas fa-inbox text-muted fs-1 mb-3"></i>
+                        <p class="text-muted">No incidents recorded yet</p>
+                    </div>
+                    {{end}}
+                </div>
+                <div class="card-footer bg-white">
+                    <a href="/incidents" class="btn btn-outline-primary btn-sm">
+                        View All Incidents <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Geographic Distribution -->
+        <div class="col-lg-4 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-globe me-2"></i>Top Countries
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {{if .stats.IncidentsByCountry}}
+                    {{range .stats.IncidentsByCountry}}
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center">
+                            <span class="flag-icon flag-icon-{{.CountryCode | lower}} me-2"></span>
+                            <span>{{.CountryName}}</span>
+                        </div>
+                        <span class="badge bg-primary">{{.Count}}</span>
+                    </div>
+                    {{end}}
+                    {{else}}
+                    <div class="text-center py-3">
+                        <i class="fas fa-map text-muted fs-2 mb-2"></i>
+                        <p class="text-muted mb-0">No location data available</p>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+    </div>
+        </div>
+    </main>
+
+    <div id="alerts" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;">
+        <!-- Alerts will be inserted here by HTMX -->
+    </div>
+
+    <script src="/static/js/main.js"></script>
+    <script>
+        function logout() {
+            fetch('/api/web/logout', { method: 'POST' })
+                .then(() => window.location.href = '/login');
+        }
+    </script>
+</body>
+</html>
