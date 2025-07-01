@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BREACH::HARBOR - Proactive Cybersecurity Defense</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&family=Silkscreen&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">
+                <span>BREACH::HARBOR</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="#overview">Overview</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#architecture">Architecture</a></li>
+                <li><a href="#cloudsync">CloudSync</a></li>
+                <li><a href="#getting-started">Get Started</a></li>
+                <li><a href="https://github.com/Dyneteq/Breach-Harbor-Core-API" class="github-button"><i class="fab fa-github"></i> GitHub</a></li>
+            </ul>
+        </nav>
+        <div class="hero">
+            <h1>Don't just defend, <span class="highlight">anticipate</span>.</h1>
+            <h2>Experience the power of proactive protection.</h2>
+            <div class="cta-buttons">
+                <a href="#getting-started" class="cta-primary">Get Started</a>
+                <a href="https://breachharbor.com" class="cta-secondary">Learn More</a>
+            </div>
+            <div class="dashboard-preview">
+                <img src="doc/bh-dash-1.png" alt="BREACH::HARBOR Dashboard" class="dashboard-img">
+                <div class="glow"></div>
+            </div>
+        </div>
+    </header>
+
+    <section id="overview" class="overview">
+        <div class="container">
+            <h2>Proactive Cybersecurity Defense Platform</h2>
+            <p class="lead">
+                BREACH::HARBOR is a state-of-the-art cybersecurity suite designed to safeguard digital assets against both existing and emergent cyber threats. By leveraging a combination of local data collection and global threat intelligence, this platform offers an unparalleled, proactive defense mechanism.
+            </p>
+            <div class="status-badge">
+                <i class="fas fa-code-branch"></i>
+                <span>Project Status: Early Development</span>
+                <p>This project is in its early stages and is not yet recommended for production use.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="features">
+        <div class="container">
+            <h2>Key Features</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3>Real-time Threat Detection</h3>
+                    <p>Identify and analyze potential threats as they emerge with comprehensive monitoring.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-network-wired"></i>
+                    </div>
+                    <h3>Distributed Collection</h3>
+                    <p>Deploy collectors across multiple network environments for comprehensive coverage.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-cloud"></i>
+                    </div>
+                    <h3>Cloud Intelligence</h3>
+                    <p>Leverage global threat data to enhance local security posture and response.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <h3>Comprehensive Visualization</h3>
+                    <p>Intuitive dashboard for threat monitoring and analysis of security incidents.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <h3>Automated Response</h3>
+                    <p>Configure customized security policies and automated threat responses.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                    <h3>Proactive Security</h3>
+                    <p>Stay ahead of threats with predictive intelligence and early warning systems.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="architecture" class="architecture">
+        <div class="container">
+            <h2>Architecture</h2>
+            <p class="lead">BREACH::HARBOR is elegantly streamlined into three primary components:</p>
+            
+            <div class="component-cards">
+                <div class="component-card">
+                    <div class="component-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h3>COLLECTOR</h3>
+                    <p>On the front lines, diligently gathering threat data from your environment.</p>
+                    <a href="https://github.com/Dyneteq/Breach-Harbor-Collector" class="repo-link"><i class="fab fa-github"></i> Repository</a>
+                </div>
+                <div class="component-card active">
+                    <div class="component-icon">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h3>CORE API</h3>
+                    <p>Central hub where data is processed, analyzed, and visualized for interpretation.</p>
+                    <div class="component-badge">This Repository</div>
+                </div>
+                <div class="component-card">
+                    <div class="component-icon">
+                        <i class="fas fa-shield-virus"></i>
+                    </div>
+                    <h3>DEFENDER</h3>
+                    <p>Enforces robust security policies based on intelligence from the Core API.</p>
+                </div>
+            </div>
+            
+            <div class="architecture-diagram">
+                <h3>How It Works</h3>
+                <div class="mermaid-diagram">
+                    <pre class="mermaid">
+flowchart LR
+    User([User Environment]) --> Collector
+    
+    subgraph Components [" "]
+        direction LR
+        
+        Collector[COLLECTOR]
+        CoreAPI[CORE API]
+        Defender[DEFENDER]
+        
+        Collector --> |Threat Data| CoreAPI
+        CoreAPI --> |Security Policies| Defender
+        Defender --> |Protection| User
+    end
+    
+    style Components fill:none,stroke:none
+    style Collector fill:#1e1e1e,stroke:#555,color:#f8f9fa,stroke-width:1px
+    style CoreAPI fill:#1e1e1e,stroke:#007bff,color:#f8f9fa,stroke-width:2px
+    style Defender fill:#1e1e1e,stroke:#555,color:#f8f9fa,stroke-width:1px
+    style User fill:#1e1e1e,stroke:#555,color:#f8f9fa,stroke-width:1px,stroke-dasharray: 5 2
+                    </pre>
+                </div>
+            </div>
+            
+            <div class="tech-stack">
+                <div class="tech-group">
+                    <h4>Backend</h4>
+                    <div class="tech-badges">
+                        <span class="tech-badge">Python</span>
+                        <span class="tech-badge">Django</span>
+                        <span class="tech-badge">REST API</span>
+                    </div>
+                </div>
+                <div class="tech-group">
+                    <h4>Frontend</h4>
+                    <div class="tech-badges">
+                        <span class="tech-badge">React</span>
+                        <span class="tech-badge">JavaScript</span>
+                        <span class="tech-badge">Bootstrap</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="cloudsync" class="cloudsync">
+        <div class="container">
+            <div class="cloudsync-content">
+                <div class="cloudsync-info">
+                    <h2>CloudSync</h2>
+                    <p class="lead">Enhance your security with commercial threat intelligence data</p>
+                    <p>CloudSync is our upcoming premium service that will provide real-time commercial threat intelligence feeds to enhance your security posture. Stay ahead of emerging threats with curated data from our global security research team.</p>
+                    <div class="cloudsync-features">
+                        <div class="cloudsync-feature">
+                            <i class="fas fa-database"></i>
+                            <span>Comprehensive threat database</span>
+                        </div>
+                        <div class="cloudsync-feature">
+                            <i class="fas fa-bolt"></i>
+                            <span>Real-time updates</span>
+                        </div>
+                        <div class="cloudsync-feature">
+                            <i class="fas fa-globe"></i>
+                            <span>Global coverage</span>
+                        </div>
+                    </div>
+                    <div class="coming-soon-badge">
+                        <span>Coming Soon</span>
+                    </div>
+                    <a href="https://breachharbor.com/contact" class="notify-button">Get Notified</a>
+                </div>
+                <div class="cloudsync-graphic">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="getting-started" class="getting-started">
+        <div class="container">
+            <h2>Getting Started</h2>
+            <p class="lead">For now, only development/local setup is supported.</p>
+            
+            <div class="setup-cards">
+                <div class="setup-card">
+                    <h3>Prerequisites</h3>
+                    <ul>
+                        <li>Python 3.8+</li>
+                        <li>Node.js 14+</li>
+                        <li>MaxMind GeoLite2 database (requires free account)</li>
+                    </ul>
+                </div>
+                
+                <div class="setup-steps">
+                    <div class="setup-step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h4>Clone the Repository</h4>
+                            <div class="code-block">
+                                <code>git clone https://github.com/Dyneteq/Breach-Harbor-Core-API.git</code>
+                                <code>cd Breach-Harbor-Core-API</code>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h4>Backend Setup</h4>
+                            <div class="code-block">
+                                <code>cd breach_harbor_core</code>
+                                <code>python -m venv .venv</code>
+                                <code>source .venv/bin/activate</code>
+                                <code>pip install -r requirements.txt</code>
+                                <code>python manage.py migrate</code>
+                                <code>python manage.py runserver 0.0.0.0:8000</code>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h4>Frontend Setup</h4>
+                            <div class="code-block">
+                                <code>cd client</code>
+                                <code>npm install</code>
+                                <code>npm run start</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <h3>BREACH::HARBOR</h3>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-column">
+                        <h4>Project</h4>
+                        <ul>
+                            <li><a href="https://github.com/Dyneteq/Breach-Harbor-Core-API">GitHub Repository</a></li>
+                            <li><a href="https://github.com/Dyneteq/Breach-Harbor-Core-API/issues">Report Issues</a></li>
+                            <li><a href="https://github.com/Dyneteq/Breach-Harbor-Core-API/blob/master/LICENCE">License</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Resources</h4>
+                        <ul>
+                            <li><a href="https://breachharbor.com">Official Website</a></li>
+                            <li><a href="https://github.com/Dyneteq/Breach-Harbor-Core-API#roadmap">Roadmap</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2023-2025 BREACH::HARBOR. Released under the <a href="https://github.com/Dyneteq/Breach-Harbor-Core-API/blob/master/LICENCE">GPL-3.0 license</a>.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            fontFamily: '"Ubuntu", sans-serif',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            },
+            themeVariables: {
+                primaryColor: '#007bff',
+                primaryTextColor: '#f8f9fa',
+                primaryBorderColor: '#333',
+                lineColor: '#007bff',
+                secondaryColor: '#1e1e1e',
+                tertiaryColor: '#121212'
+            }
+        });
+
+        // Simple scroll animation for navigation
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // Add active class to nav items on scroll
+        window.addEventListener('scroll', function() {
+            const sections = document.querySelectorAll('section');
+            const navLinks = document.querySelectorAll('.nav-links a');
+            
+            let current = '';
+            
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if(pageYOffset >= (sectionTop - sectionHeight/3)) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if(link.getAttribute('href') === `#${current}`) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
