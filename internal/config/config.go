@@ -31,7 +31,8 @@ type ServerConfig struct {
 }
 
 type MaxMindConfig struct {
-	DBPath string
+	DBPath    string
+	ASNDBPath string
 }
 
 type CORSConfig struct {
@@ -57,7 +58,8 @@ func Load() (*Config, error) {
 			Port: serverPort,
 		},
 		MaxMind: MaxMindConfig{
-			DBPath: getEnv("MAXMIND_DB_PATH", "./data/GeoLite2-City.mmdb"),
+			DBPath:    getEnv("MAXMIND_DB_PATH", "./data/GeoLite2-City.mmdb"),
+			ASNDBPath: getEnv("MAXMIND_ASN_DB_PATH", "./data/GeoLite2-ASN.mmdb"),
 		},
 		CORS: CORSConfig{
 			AllowedOrigins: []string{getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")},
