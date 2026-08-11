@@ -79,6 +79,17 @@ func (s *CollectorService) GetCollectorByName(userID uint, name string) (*models
 	return &collector, nil
 }
 
+// GetCollectorByID looks up a collector by primary key with no user
+// scoping — used server-side by the /v1/enroll handler, which only
+// ever has a collector_id from CollectorAuthMiddleware, never a user.
+func (s *CollectorService) GetCollectorByID(id uint) (*models.Collector, error) {
+	var collector models.Collector
+	if err := s.db.First(&collector, id).Error; err != nil {
+		return nil, err
+	}
+	return &collector, nil
+}
+
 // DeleteCollector removes a collector (and, via the FK, orphans none of
 // its incidents — incidents are kept for history) scoped to userID so
 // one user can never delete another's collector by guessing a name.

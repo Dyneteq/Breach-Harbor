@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Dyneteq/Breach-Harbor/internal/blocklist"
 	"github.com/Dyneteq/Breach-Harbor/internal/feed"
 	"github.com/Dyneteq/Breach-Harbor/internal/firewall"
 	"github.com/Dyneteq/Breach-Harbor/internal/logsource"
@@ -27,6 +28,13 @@ type Agent struct {
 	Sources  []logsource.Source
 	Weights  ScoreWeights
 
+	// Uploader is nil for a standalone agent (the default). When set
+	// (internal/cli/agent_run.go, once `agent enroll` has persisted an
+	// Enrollment), Run periodically drains the observation queue to
+	// the server and merges its published blocklist into detection —
+	// PLAN.md M2 item 7.
+	Uploader *Uploader
+
 	// Logf is where the scrolling console log goes. Defaults to
 	// stdout; tests substitute something that just records lines.
 	Logf func(format string, args ...any)
@@ -36,8 +44,9 @@ type Agent struct {
 	// Run's single select loop, never concurrently).
 	windows map[string]*Window
 
-	feedMu      sync.RWMutex
-	feedEntries []feed.Entry
+	feedMu           sync.RWMutex
+	feedEntries      []feed.Entry
+	blocklistEntries []feed.Entry
 }
 
 // New returns an Agent ready to Run. cfg should already be validated
@@ -89,6 +98,9 @@ func (a *Agent) Run(ctx context.Context) error {
 	// PLAN.md's demo transcript (feeds print before any WOULD BLOCK
 	// line).
 	a.refreshFeeds(ctx)
+	if a.Uploader != nil {
+		a.syncEnrollment(ctx)
+	}
 
 	events := make(chan logsource.Event, 256)
 	var wg sync.WaitGroup
@@ -126,6 +138,9 @@ func (a *Agent) Run(ctx context.Context) error {
 			a.handleEvent(ctx, ev)
 		case <-ticker.C:
 			go a.refreshFeeds(ctx)
+			if a.Uploader != nil {
+				go a.syncEnrollment(ctx)
+			}
 		case <-stateTicker.C:
 			a.reconcileState(ctx)
 		}
@@ -188,7 +203,8 @@ func (a *Agent) refreshFeeds(ctx context.Context) {
 }
 
 // feedMatch reports the provider name of the first cached feed entry
-// whose range contains ip, if any.
+// (local providers, or — once enrolled — the server's published
+// blocklist) whose range contains ip, if any.
 func (a *Agent) feedMatch(ip netip.Addr) (string, bool) {
 	a.feedMu.RLock()
 	defer a.feedMu.RUnlock()
@@ -197,7 +213,45 @@ func (a *Agent) feedMatch(ip netip.Addr) (string, bool) {
 			return e.Provider, true
 		}
 	}
+	for _, e := range a.blocklistEntries {
+		if e.Prefix.Contains(ip) {
+			return e.Provider, true
+		}
+	}
 	return "", false
+}
+
+// syncEnrollment drains the local observation queue to the enrolled
+// server and refreshes the merged blocklist used by feedMatch above.
+// A failure in either half is logged and never fatal — an enrolled
+// agent that temporarily can't reach its server keeps operating on
+// local detection alone (PLAN.md's "cache first, ask later").
+func (a *Agent) syncEnrollment(ctx context.Context) {
+	if n, err := a.Uploader.UploadPending(ctx); err != nil {
+		a.Logf("[%s] upload to %s failed (will retry): %v", ts(time.Now()), a.Uploader.Enrollment.ServerURL, err)
+	} else if n > 0 {
+		a.Logf("[%s] uploaded %d observation(s) to %s", ts(time.Now()), n, a.Uploader.Enrollment.ServerURL)
+	}
+
+	a.feedMu.RLock()
+	local := make([]blocklist.Entry, 0, len(a.feedEntries))
+	for _, e := range a.feedEntries {
+		local = append(local, blocklist.Entry{Prefix: e.Prefix, Reason: e.Provider + ": " + e.Reason})
+	}
+	a.feedMu.RUnlock()
+
+	merged, err := a.Uploader.RefreshBlocklist(ctx, local)
+	if err != nil {
+		a.Logf("[%s] blocklist refresh: %v", ts(time.Now()), err)
+	}
+
+	entries := make([]feed.Entry, 0, len(merged))
+	for _, e := range merged {
+		entries = append(entries, feed.Entry{Prefix: e.Prefix, Reason: e.Reason, Provider: "blocklist"})
+	}
+	a.feedMu.Lock()
+	a.blocklistEntries = entries
+	a.feedMu.Unlock()
 }
 
 // handleEvent scores one observation, persists the resulting
@@ -208,6 +262,19 @@ func (a *Agent) handleEvent(ctx context.Context, ev logsource.Event) {
 	now := time.Now()
 	if ev.Time.IsZero() {
 		ev.Time = now
+	}
+
+	// Queued regardless of enrollment status — a standalone agent's
+	// queue just never drains (store.Observation's doc comment), but an
+	// agent enrolled later (internal/agent/enroll.go, M2) needs
+	// something for its uploader to have already been collecting.
+	if err := a.Store.Enqueue(store.Observation{
+		IP:       ev.IP,
+		Kind:     string(ev.Kind),
+		Time:     ev.Time,
+		Metadata: map[string]string{"source": ev.Source},
+	}); err != nil {
+		a.Logf("[%s] failed to enqueue observation for %s: %v", ts(now), ev.IP, err)
 	}
 
 	win := a.windows[ev.IP.String()]

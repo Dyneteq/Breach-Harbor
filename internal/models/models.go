@@ -22,20 +22,20 @@ type User struct {
 }
 
 type Location struct {
-	ID                  uint      `gorm:"primaryKey" json:"id"`
-	CountryName         string    `json:"country_name"`
-	CountryCode         string    `json:"country_code"`
-	City                string    `json:"city"`
-	Latitude            float64   `json:"latitude"`
-	Longitude           float64   `json:"longitude"`
-	Timezone            string    `json:"timezone"`
-	ISP                 string    `json:"isp"`
-	Organization        string    `json:"organization"`
-	AS                  string    `json:"as"`
-	ASN                 uint      `json:"asn"`
-	IsInEuropeanUnion   bool      `json:"is_in_european_union"`
-	IsAnonymousProxy    bool      `json:"is_anonymous_proxy"`
-	IsSatelliteProvider bool      `json:"is_satellite_provider"`
+	ID                  uint    `gorm:"primaryKey" json:"id"`
+	CountryName         string  `json:"country_name"`
+	CountryCode         string  `json:"country_code"`
+	City                string  `json:"city"`
+	Latitude            float64 `json:"latitude"`
+	Longitude           float64 `json:"longitude"`
+	Timezone            string  `json:"timezone"`
+	ISP                 string  `json:"isp"`
+	Organization        string  `json:"organization"`
+	AS                  string  `json:"as"`
+	ASN                 uint    `json:"asn"`
+	IsInEuropeanUnion   bool    `json:"is_in_european_union"`
+	IsAnonymousProxy    bool    `json:"is_anonymous_proxy"`
+	IsSatelliteProvider bool    `json:"is_satellite_provider"`
 	// IsLegitimateProxy was dropped (PLAN.md M2 data model changes): the
 	// free GeoLite2-City edition's Traits struct (see
 	// github.com/oschwald/geoip2-golang's City type) only ever carries
