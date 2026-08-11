@@ -4,7 +4,6 @@
 *.dll
 *.so
 *.dylib
-server
 
 # Test binary, built with `go test -c`
 *.test
@@ -68,7 +67,3 @@ coverage.html
 # Temporary files
 tmp/
 temp/
-
-# Docker volumes
-postgres_data/
-redis_data/

@@ -11,7 +11,7 @@ LDFLAGS := -X $(MODULE)/internal/version.Version=$(VERSION) \
 
 build:
 	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/breachharbor ./cmd/breachharbor
-	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/bh ./cmd/bh
+	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/bh ./cmd/breachharbor
 
 test:
 	go test ./...
