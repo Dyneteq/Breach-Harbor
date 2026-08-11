@@ -31,9 +31,9 @@ func TestHourlyIncidentCounts_GroupsIntoCorrectBuckets(t *testing.T) {
 
 	now := time.Now().UTC()
 	seedIncidentAt(t, svc, user.ID, now)
-	seedIncidentAt(t, svc, user.ID, now)                        // same hour as above -> bucket count 2
-	seedIncidentAt(t, svc, user.ID, now.Add(-3*time.Hour))       // a different, earlier bucket -> count 1
-	seedIncidentAt(t, svc, user.ID, now.Add(-30*24*time.Hour))   // far outside the 24h window -> excluded
+	seedIncidentAt(t, svc, user.ID, now)                       // same hour as above -> bucket count 2
+	seedIncidentAt(t, svc, user.ID, now.Add(-3*time.Hour))     // a different, earlier bucket -> count 1
+	seedIncidentAt(t, svc, user.ID, now.Add(-30*24*time.Hour)) // far outside the 24h window -> excluded
 
 	hourly, err := svc.hourlyIncidentCounts(user.ID)
 	if err != nil {
