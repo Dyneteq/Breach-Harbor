@@ -23,7 +23,7 @@ breachharbor server    # aggregates signal from many agents, publishes blocklist
 The agent auto-detects your logs (sshd, nginx, fail2ban), watches quietly for 24 hours by
 default, and blocks nothing until you tell it to. Everything it blocks lives in one dedicated
 firewall table, so `breachharbor agent flush` undoes all of it, instantly, any time. No server
-required — the agent is a complete product on its own.
+required: the agent is a complete product on its own.
 
 ## Quick start
 
@@ -36,7 +36,7 @@ make build
 ./bin/breachharbor doctor
 ```
 
-`doctor` tells you what's ready to go and what isn't — never needs root.
+`doctor` tells you what's ready to go and what isn't; it never needs root.
 
 ```bash
 ./bin/breachharbor agent flush          # always safe: reports what would be removed
@@ -47,10 +47,10 @@ sudo ./bin/breachharbor agent flush --yes    # actually removes it
 
 Being rebuilt into the CLI above, one milestone at a time:
 
-- ✅ **M0 — it builds.** `version`, `doctor`, `agent flush` work today. Everything else says so
+- ✅ **M0: it builds.** `version`, `doctor`, `agent flush` work today. Everything else says so
   honestly instead of pretending.
-- 🚧 **M1 — the agent stands alone.** In progress.
-- ⏳ **M2 — the server is useful.** Planned.
+- 🚧 **M1: the agent stands alone.** In progress.
+- ⏳ **M2: the server is useful.** Planned.
 
 ## Development
 
@@ -74,14 +74,14 @@ Static binary, no CGO, ~8MB image. Healthcheck is just `breachharbor doctor --js
 
 ## Security notes
 
-- Nothing leaves the machine unless you run `breachharbor agent enroll <url>` — `doctor` shows
+- Nothing leaves the machine unless you run `breachharbor agent enroll <url>`; `doctor` shows
   exactly what would be sent and where.
 - No AI/ML. Detection is plain rules plus free public threat feeds (Spamhaus, FireHOL, Tor exit
   nodes).
 
 ## Contributing
 
-PRs welcome — fork, branch, and open a pull request. Add tests: this runs as root and edits
+PRs welcome: fork, branch, and open a pull request. Add tests: this runs as root and edits
 firewalls, so untested code doesn't ship.
 
 ## License
@@ -90,4 +90,4 @@ firewalls, so untested code doesn't ship.
 
 ## Support
 
-[GitHub Issues](https://github.com/Dyneteq/Breach-Harbor/issues) · security@breachharbor.com
+[GitHub Issues](https://github.com/Dyneteq/Breach-Harbor/issues)
