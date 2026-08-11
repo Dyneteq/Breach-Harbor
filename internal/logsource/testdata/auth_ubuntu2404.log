@@ -1,0 +1,4 @@
+Aug 11 09:45:01 web02 sshd[9001]: Failed password for postgres from 192.0.2.187 port 40100 ssh2
+Aug 11 09:45:03 web02 sshd[9001]: Failed password for postgres from 192.0.2.187 port 40102 ssh2
+Aug 11 09:45:05 web02 sshd[9002]: Connection closed by authenticating user root 198.51.100.9 port 40110 [preauth]
+Aug 11 09:45:08 web02 sshd[9003]: Failed password for invalid user ubuntu from 198.51.100.9 port 40120 ssh2

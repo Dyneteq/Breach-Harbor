@@ -19,8 +19,22 @@ func runAgentCmd(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	switch sub {
 	case "flush":
 		return runAgentFlush(ctx, rest, stdout, stderr)
-	case "run", "install", "uninstall", "status", "top", "enforce", "sources", "enroll":
-		fmt.Fprintf(stderr, "breachharbor agent %s: not implemented in this build yet (coming in a later milestone)\n", sub)
+	case "run":
+		return runAgentRun(ctx, rest, stdout, stderr)
+	case "install":
+		return runAgentInstall(ctx, rest, stdout, stderr)
+	case "uninstall":
+		return runAgentUninstall(ctx, rest, stdout, stderr)
+	case "status":
+		return runAgentStatus(ctx, rest, stdout, stderr)
+	case "top":
+		return runAgentTop(ctx, rest, stdout, stderr)
+	case "enforce":
+		return runAgentEnforce(ctx, rest, stdout, stderr)
+	case "sources":
+		return runAgentSources(ctx, rest, stdout, stderr)
+	case "enroll":
+		fmt.Fprintf(stderr, "breachharbor agent %s: not implemented in this build yet (coming in M2)\n", sub)
 		return 1
 	case "-h", "--help", "help":
 		printAgentUsage(stdout)

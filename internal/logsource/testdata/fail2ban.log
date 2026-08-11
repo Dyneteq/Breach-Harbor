@@ -1,0 +1,4 @@
+2026-08-11 09:44:00,123 fail2ban.filter        [1234]: INFO    [sshd] Found 203.0.113.44 - 2026-08-11 09:43:55
+2026-08-11 09:44:00,456 fail2ban.actions        [1234]: NOTICE  [sshd] Ban 203.0.113.44
+2026-08-11 09:50:00,789 fail2ban.actions        [1234]: NOTICE  [sshd] Unban 203.0.113.44
+2026-08-11 09:51:12,001 fail2ban.actions        [1234]: NOTICE  [nginx-botsearch] Ban 198.51.100.9
