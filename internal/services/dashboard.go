@@ -72,22 +72,9 @@ func (s *DashboardService) GetDashboardStats(userID uint) (*DashboardStats, erro
 		Find(&countryStats)
 	stats.IncidentsByCountry = countryStats
 
-	// Hourly incidents for last 24 hours
-	var hourlyStats []HourlyIncidentCount
-	for i := 0; i < 24; i++ {
-		hour := time.Now().Add(time.Duration(-i) * time.Hour).Hour()
-		hourStart := time.Now().Add(time.Duration(-i) * time.Hour).Truncate(time.Hour)
-		hourEnd := hourStart.Add(time.Hour)
-
-		var count int64
-		s.db.Model(&models.Incident{}).
-			Where("user_id = ? AND created_at >= ? AND created_at < ?", userID, hourStart, hourEnd).
-			Count(&count)
-
-		hourlyStats = append(hourlyStats, HourlyIncidentCount{
-			Hour:  hour,
-			Count: count,
-		})
+	hourlyStats, err := s.hourlyIncidentCounts(userID)
+	if err != nil {
+		return nil, err
 	}
 	stats.HourlyIncidents = hourlyStats
 
@@ -101,6 +88,49 @@ func (s *DashboardService) GetDashboardStats(userID uint) (*DashboardStats, erro
 		Find(&stats.RecentIncidents)
 
 	return stats, nil
+}
+
+// hourlyBucketRow is the raw shape of hourlyIncidentCounts' grouped
+// query — one row per hour that actually has incidents.
+type hourlyBucketRow struct {
+	Bucket string
+	Count  int64
+}
+
+// hourlyIncidentCounts replaces what used to be 24 separate COUNT(*)
+// queries (one per hour, in a loop) with a single grouped query, then
+// fills in the hours that had zero incidents in Go. created_at is
+// stored with an explicit UTC offset (see glebarez/sqlite's default
+// time format), so strftime normalizes every row to UTC before
+// bucketing — bucket keys below are built the same way for a match.
+func (s *DashboardService) hourlyIncidentCounts(userID uint) ([]HourlyIncidentCount, error) {
+	now := time.Now().UTC()
+	since := now.Add(-24 * time.Hour)
+
+	var rows []hourlyBucketRow
+	err := s.db.Model(&models.Incident{}).
+		Select("strftime('%Y-%m-%d %H:00:00', created_at) AS bucket, COUNT(*) AS count").
+		Where("user_id = ? AND created_at >= ?", userID, since).
+		Group("bucket").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	counts := make(map[string]int64, len(rows))
+	for _, r := range rows {
+		counts[r.Bucket] = r.Count
+	}
+
+	hourly := make([]HourlyIncidentCount, 0, 24)
+	for i := 0; i < 24; i++ {
+		bucketStart := now.Add(time.Duration(-i) * time.Hour).Truncate(time.Hour)
+		hourly = append(hourly, HourlyIncidentCount{
+			Hour:  bucketStart.Hour(),
+			Count: counts[bucketStart.Format("2006-01-02 15:00:00")],
+		})
+	}
+	return hourly, nil
 }
 
 func (s *DashboardService) GetAllIPAddresses(userID uint) ([]models.IPAddress, error) {
