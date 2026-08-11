@@ -45,11 +45,87 @@ its M1 refinements are folded into the M1 section below).
     (a fresh Linux VM with sshd/nginx/fail2ban) was not run.
   - `agent run`'s `--config` flag is accepted but explicitly rejected ("not implemented") — no file
     config loader was built, flags only, as scoped.
-- ⏳ **M2 — the server is useful.** Not started.
+- ✅ **M2 — the server is useful.** Implemented on branch
+  `restructure/m2-server-is-useful` (off `restructure/m1-agent-stands-alone`),
+  commits `1e0a91f` through `7fbf933` — see that branch's log for the full
+  incremental history. All ten M2 checklist items are done: `internal/server`
+  (the HTTP bootstrap that never existed — `server.go`/`http.go`/`ingest.go`/
+  `enroll.go`/`publisher.go`/`systemd.go`), `middleware/auth.go` (header-then-
+  cookie, split into `AuthMiddleware`/`WebAuthMiddleware`), `models.Collector
+  .TokenHash` + batched ingest (`CreateInBatches`), `services/dashboard.go`'s
+  N+1 fix (one grouped query), `services/location.go` real ASN/hosting/Tor
+  enrichment (`internal/feed/asn.go`'s curated table + a second GeoLite2-ASN
+  reader + a swappable Tor index), `internal/blocklist` (ed25519 sign/verify/
+  publish + agent-side fetch/verify/merge), `internal/agent/enroll.go` +
+  `uploader.go`, `server run/install/status` CLI, `agent enroll` CLI, and
+  `handlers/web.go`'s `HandleDeleteCollector` stub + the token-in-plaintext
+  bug (now shown once at creation, only a hash persists). `go build ./...`,
+  `go vet ./...`, `go test ./... -race`, and `gofmt -l .` all clean on M2's
+  own code; cross-compiles verified for linux/amd64, linux/arm64,
+  darwin/arm64; a real `breachharbor server run` was smoke-tested standalone
+  on this darwin box and inside the actual `docker build`-produced image
+  (health check, login/register/dashboard/collectors/incidents/ip-addresses
+  pages, collector create-with-token-banner and delete, all verified over
+  real HTTP against a real SQLite DB) — this caught and fixed a real crash
+  (`SetFuncMap` needed before `LoadHTMLGlob`, see gaps below) that unit
+  tests alone hadn't exercised. `internal/server/e2e_test.go`'s
+  `TestEndToEnd_EnrollObserveIngestPublishFetchVerifyMerge` automates
+  PLAN.md's own M2 demo script end to end, including the "kill the server
+  mid-session" cache-fallback assertion.
+  **Known gaps, called out rather than silently skipped:**
+  - `agent enroll` only takes effect on the *next* `agent run` — a
+    currently-running agent process only reads its enrollment file at
+    startup (unlike `agent enforce --on/--off`, which a live process
+    reconciles from disk every 3s). Documented in the CLI's own output;
+    could be wired onto the same `stateTicker` in a follow-up if it turns
+    out to matter in practice.
+  - No dedicated `httptest` coverage was added for the pre-existing JSON
+    REST handlers (`handlers/auth.go`'s `Login`/`Register`/`GetCurrentUser`,
+    `handlers/collector.go`'s `GetCollectors`/`GetCollectorByName`/
+    `GetIncidents*`, `handlers/dashboard.go`'s `GetIPAddresses*`) — that
+    code predates this milestone and wasn't modified, so the risk is lower,
+    but it's still unexercised by any automated test through `internal/server`'s
+    router specifically (only indirectly, via the manual dashboard smoke
+    test above, for the HTML-rendering equivalents).
+  - `services/location.go`'s ASN/City enrichment was only exercised against
+    the no-MaxMind-database fallback path (no `.mmdb` files were available
+    in the environment that built this) — the actual `geoip2.Reader.ASN()`/
+    `.City()` lookup paths, and the real field values MaxMind's databases
+    return, are unverified against real data. Verify with real
+    `GeoLite2-City.mmdb`/`GeoLite2-ASN.mmdb` files before relying on
+    ISP/ASN/datacenter enrichment being accurate.
+  - The blocklist's "cross-collector consensus" half
+    (`internal/server/publisher.go`'s `confirmedFromIncidents`: ≥3
+    incidents for one IP across any collector in 24h) is a judgment call
+    with no explicit spec in this plan to match against — tune the
+    threshold/window against real traffic before relying on it, same
+    caveat as the agent's own offender-scoring weights.
+  - `server install`'s systemd unit (`internal/server/systemd.go`) has the
+    same **unverified-on-a-real-systemd-host** caveat M1's agent unit
+    still carries — no such machine was available here either.
+  - No real two-machine demo (a real agent box + a real server box) was
+    run — the full loop is covered by `TestEndToEnd_...` (in-process,
+    `httptest`) plus the manual single-box smoke tests above, but not
+    across an actual network between two separate hosts.
+  - `internal/logsource`'s `testdata/*.log` fixture gap (from a
+    `.gitignore` rule that silently excluded them) was found and fixed
+    directly on `restructure/m1-agent-stands-alone` (commit `b17ede2`,
+    concurrently with this M2 work, in another session) — that fix hadn't
+    been merged into `restructure/m2-server-is-useful` as of M2's last
+    commit here, so `go test ./...` on this branch alone still shows 6
+    unrelated `internal/logsource` failures until the branches are merged.
+    Not an M2 regression; nothing in M2 touches `internal/logsource`.
+  - Open question #1 (`Collector` → `Agent` rename) was decided: **kept as
+    `Collector`** — renaming touched enough of the existing, working
+    services/handlers/templates layer that it wasn't worth the churn for
+    this milestone.
+
 - Sketch only: M3 (trust hardening), M4 (sharing).
 
-Before starting M2, confirm the branch is still green:
-`go build ./... && go vet ./... && go test ./... && gofmt -l .`
+Before starting M3, confirm the branch is still green:
+`go build ./... && go vet ./... && go test ./... && gofmt -l .` — and merge
+`restructure/m1-agent-stands-alone`'s `b17ede2` (or its equivalent) in
+first, to pick up the `internal/logsource` test-fixture fix noted above.
 
 ## Context
 
@@ -510,7 +586,7 @@ a comment table so a user can read *why* an IP was flagged):
 **Demo**: `make build` → binaries; `version`/`doctor`/`agent flush` work; CI green on a clean
 clone. **Verified.**
 
-### M1 — agent stands alone — 🚧 NEXT
+### M1 — agent stands alone — ✅ DONE
 
 Goal: `breachharbor agent run` with zero flags is a genuinely useful standalone product — no
 server required. Auto-detected log sources, a real 24h dry run, real `enforce --on`, a reversible
@@ -563,7 +639,7 @@ source is missing/weird."
 Full example CLI output text to match (reviewed and approved wording — keep the voice): see the
 `agent run`/`agent status`/`agent top`/`doctor` sections above under "Full CLI command tree."
 
-### M2 — server is useful
+### M2 — server is useful — ✅ DONE
 
 1. `internal/server/http.go`: the bootstrap that's never existed — `POST /v1/enroll`, `POST
    /v1/observations` (batched, replacing one-event-per-request), `GET /v1/blocklist`, plus
