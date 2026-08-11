@@ -1,8 +1,10 @@
 package server
 
 import (
+	"html/template"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	"github.com/Dyneteq/Breach-Harbor/internal/handlers"
 	"github.com/Dyneteq/Breach-Harbor/internal/middleware"
@@ -80,6 +82,15 @@ func (s *Server) buildRouter() *gin.Engine {
 // static/, HTMX forms) — the "existing dashboard" PLAN.md's M2 section
 // scoped this milestone to wire up, not redesign.
 func (s *Server) registerWebRoutes(r *gin.Engine) {
+	// "lower" is used by five templates (ip_addresses.html,
+	// incident_details.html, dashboard.html, incidents.html,
+	// ip_address_details.html) to build a flag-icon CSS class from a
+	// country code — {{.CountryCode | lower}} — but isn't one of
+	// html/template's builtin functions. This was never caught before
+	// M2 because this is the first time anything actually called
+	// LoadHTMLGlob; SetFuncMap must run before it or gin's
+	// template.Must(...) panics at startup.
+	r.SetFuncMap(template.FuncMap{"lower": strings.ToLower})
 	r.LoadHTMLGlob(filepath.Join(s.cfg.TemplatesDir, "*.html"))
 	r.Static("/static", s.cfg.StaticDir)
 
