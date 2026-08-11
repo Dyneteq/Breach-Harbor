@@ -34,8 +34,7 @@ func runAgentCmd(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	case "sources":
 		return runAgentSources(ctx, rest, stdout, stderr)
 	case "enroll":
-		fmt.Fprintf(stderr, "breachharbor agent %s: not implemented in this build yet (coming in M2)\n", sub)
-		return 1
+		return runAgentEnroll(ctx, rest, stdout, stderr)
 	case "-h", "--help", "help":
 		printAgentUsage(stdout)
 		return 0

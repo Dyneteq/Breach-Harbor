@@ -95,14 +95,19 @@ func (s *LocationService) UpdateTorEntries(entries []feed.Entry) {
 }
 
 func (s *LocationService) GetOrCreateLocation(ip string) (*models.Location, error) {
-	parsedIP := net.ParseIP(ip)
-	if parsedIP == nil {
+	// Parsed via netip first, not net.ParseIP+To16(): net.IP.To16()
+	// always widens an IPv4 address into its IPv4-in-IPv6 form, which
+	// produces a netip.Addr that Is4In6() rather than Is4() — that
+	// never compares equal to (or matches a Prefix.Contains against)
+	// the plain 4-byte netip.Addr values internal/feed's providers
+	// parse via netip.ParseAddr, silently breaking IsTorExitNode for
+	// every IPv4 address. Deriving net.IP from the netip.Addr instead
+	// keeps both forms in agreement.
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
 		return nil, gorm.ErrInvalidValue
 	}
-	addr, ok := netip.AddrFromSlice(parsedIP.To16())
-	if !ok {
-		addr, _ = netip.AddrFromSlice(parsedIP)
-	}
+	parsedIP := net.IP(addr.AsSlice())
 
 	// If no MaxMind reader available, create basic location with IP only
 	if s.cityReader == nil {

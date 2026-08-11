@@ -136,6 +136,9 @@ func buildStatusReport(ctx context.Context, dataDir string) (statusReport, error
 	}
 
 	server := "not enrolled (standalone) — run `breachharbor agent enroll <url>` to connect one"
+	if enrollment, found, eerr := agent.LoadEnrollment(dataDir); eerr == nil && found {
+		server = fmt.Sprintf("enrolled with %s as %q (since %s)", enrollment.ServerURL, enrollment.CollectorName, ts(enrollment.EnrolledAt))
+	}
 
 	report := statusReport{
 		Running:        state.PID != 0 && processAlive(state.PID),
