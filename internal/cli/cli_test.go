@@ -64,13 +64,19 @@ func TestMain_VersionJSON(t *testing.T) {
 
 func TestMain_Doctor_NeverPanics(t *testing.T) {
 	// doctor must never crash even when the environment has no
-	// firewall tooling at all (true of this test sandbox).
+	// firewall/log-source tooling at all (true of this test sandbox).
 	stdout, _, code := run("doctor")
 	if code != 0 && code != 1 {
 		t.Errorf("code = %d, want 0 or 1", code)
 	}
 	if !strings.Contains(stdout, "OS/ARCH") {
 		t.Errorf("expected an OS/ARCH check line, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Log sources") {
+		t.Errorf("expected a Log sources check line, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Feeds (network)") {
+		t.Errorf("expected a Feeds (network) check line, got %q", stdout)
 	}
 }
 
