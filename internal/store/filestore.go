@@ -14,6 +14,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/Dyneteq/Breach-Harbor/internal/blocklist"
 )
 
 // DefaultMaxQueueEntries bounds the on-disk upload queue so a
@@ -298,6 +300,33 @@ func (fs *FileStore) QueueDepth() (int, error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	return len(fs.queue), nil
+}
+
+// --- blocklist ---
+
+func (fs *FileStore) blocklistPath() string { return filepath.Join(fs.dir, "blocklist.json") }
+
+func (fs *FileStore) SaveBlocklist(bl blocklist.SignedBlocklist) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	return atomicWriteJSON(fs.blocklistPath(), bl)
+}
+
+func (fs *FileStore) LoadBlocklist() (blocklist.SignedBlocklist, bool, error) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	data, err := os.ReadFile(fs.blocklistPath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return blocklist.SignedBlocklist{}, false, nil
+		}
+		return blocklist.SignedBlocklist{}, false, fmt.Errorf("read %s: %w", fs.blocklistPath(), err)
+	}
+	var bl blocklist.SignedBlocklist
+	if err := json.Unmarshal(data, &bl); err != nil {
+		return blocklist.SignedBlocklist{}, false, fmt.Errorf("corrupt blocklist file %s: %w", fs.blocklistPath(), err)
+	}
+	return bl, true, nil
 }
 
 func newObservationID() string {
