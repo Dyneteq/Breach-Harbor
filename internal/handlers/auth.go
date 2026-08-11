@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"breach-harbor-core/internal/services"
+	"github.com/Dyneteq/Breach-Harbor/internal/services"
 
 	"github.com/gin-gonic/gin"
 )

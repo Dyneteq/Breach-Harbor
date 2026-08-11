@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"breach-harbor-core/internal/models"
+	"github.com/Dyneteq/Breach-Harbor/internal/models"
 
 	"gorm.io/gorm"
 )
@@ -107,12 +107,12 @@ func (s *CollectorService) CreateIncident(collectorToken, ipAddress, incidentTyp
 	}
 
 	incident := models.Incident{
-		IncidentType:  incidentType,
-		Metadata:      metadata,
-		HappenedAt:    time.Now(),
-		CollectorID:   collector.ID,
-		UserID:        collector.UserID,
-		IPAddressID:   ipAddr.ID,
+		IncidentType: incidentType,
+		Metadata:     metadata,
+		HappenedAt:   time.Now(),
+		CollectorID:  collector.ID,
+		UserID:       collector.UserID,
+		IPAddressID:  ipAddr.ID,
 	}
 
 	if err := s.db.Create(&incident).Error; err != nil {

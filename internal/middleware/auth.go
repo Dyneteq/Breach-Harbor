@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"breach-harbor-core/internal/services"
+	"github.com/Dyneteq/Breach-Harbor/internal/services"
 
 	"github.com/gin-gonic/gin"
 )

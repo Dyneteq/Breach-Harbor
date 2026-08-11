@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"breach-harbor-core/internal/services"
+	"github.com/Dyneteq/Breach-Harbor/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,7 +18,7 @@ func NewDashboardHandler(dashboardService *services.DashboardService) *Dashboard
 
 func (h *DashboardHandler) GetStats(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	
+
 	stats, err := h.dashboardService.GetDashboardStats(userID.(uint))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get dashboard stats"})
@@ -30,7 +30,7 @@ func (h *DashboardHandler) GetStats(c *gin.Context) {
 
 func (h *DashboardHandler) GetIPAddresses(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	
+
 	ipAddresses, err := h.dashboardService.GetAllIPAddresses(userID.(uint))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get IP addresses"})
@@ -43,7 +43,7 @@ func (h *DashboardHandler) GetIPAddresses(c *gin.Context) {
 func (h *DashboardHandler) GetIPAddressDetails(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	ip := c.Param("ip")
-	
+
 	ipAddress, incidents, err := h.dashboardService.GetIPAddressDetails(userID.(uint), ip)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "IP address not found"})

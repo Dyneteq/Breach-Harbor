@@ -4,7 +4,6 @@
 *.dll
 *.so
 *.dylib
-server
 
 # Test binary, built with `go test -c`
 *.test
@@ -14,6 +13,11 @@ server
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# Python virtualenv (accidentally committed once, never again)
+.venv/
+__pycache__/
+*.pyc
 
 # Go workspace file
 go.work
@@ -52,6 +56,7 @@ ehthumbs.db
 Thumbs.db
 
 # Build artifacts
+bin/
 dist/
 build/
 
@@ -62,7 +67,3 @@ coverage.html
 # Temporary files
 tmp/
 temp/
-
-# Docker volumes
-postgres_data/
-redis_data/

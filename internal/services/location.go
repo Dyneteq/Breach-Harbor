@@ -4,8 +4,8 @@ import (
 	"log"
 	"net"
 
-	"breach-harbor-core/internal/config"
-	"breach-harbor-core/internal/models"
+	"github.com/Dyneteq/Breach-Harbor/internal/config"
+	"github.com/Dyneteq/Breach-Harbor/internal/models"
 
 	"github.com/oschwald/geoip2-golang"
 	"gorm.io/gorm"
@@ -24,7 +24,7 @@ func NewLocationService(db *gorm.DB, cfg *config.Config) (*LocationService, erro
 		// This allows the application to start but geolocation will be limited
 		log.Printf("Warning: MaxMind database not available at %s: %v", cfg.MaxMind.DBPath, err)
 		log.Printf("IP geolocation will be limited. Download GeoLite2-City.mmdb from MaxMind.")
-		
+
 		return &LocationService{
 			db:     db,
 			reader: nil,
@@ -71,7 +71,7 @@ func (s *LocationService) GetOrCreateLocation(ip string) (*models.Location, erro
 		// If MaxMind lookup fails, create basic location
 		location := models.Location{
 			CountryName: "Unknown",
-			CountryCode: "XX", 
+			CountryCode: "XX",
 			City:        "Unknown",
 			Latitude:    0.0,
 			Longitude:   0.0,
