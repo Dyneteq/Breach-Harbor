@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"time"
 )
 
 // printJSON writes v as indented JSON to w — every data-producing
@@ -37,4 +38,31 @@ func fail(cause error, advice string) error {
 
 func printErr(w io.Writer, err error) {
 	fmt.Fprintf(w, "breachharbor: %v\n", err)
+}
+
+// ts formats a timestamp the way every scrolling log line in this CLI
+// does, e.g. "2026-08-11 09:44:17".
+func ts(t time.Time) string { return t.Format("2006-01-02 15:04:05") }
+
+// formatDuration renders a duration the way `agent run`'s dry-run
+// banner and `agent status`'s uptime do: "23h58m" / "3h12m" / "46s" —
+// coarser than time.Duration.String(), no sub-second noise.
+func formatDuration(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
+	d = d.Round(time.Second)
+	h := d / time.Hour
+	d -= h * time.Hour
+	m := d / time.Minute
+	d -= m * time.Minute
+	s := d / time.Second
+	switch {
+	case h > 0:
+		return fmt.Sprintf("%dh%dm", h, m)
+	case m > 0:
+		return fmt.Sprintf("%dm%ds", m, s)
+	default:
+		return fmt.Sprintf("%ds", s)
+	}
 }

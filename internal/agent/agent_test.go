@@ -200,6 +200,56 @@ func TestAgent_BlockFailure_DoesNotMarkBlocked(t *testing.T) {
 	}
 }
 
+func TestAgent_ReconcileState_PicksUpEnforceOnFromDisk(t *testing.T) {
+	a, _, fw, logs := newTestAgent(t, false)
+
+	// A separate `agent enforce --on` invocation writes this.
+	if err := SaveState(a.Config.DataDir, State{Enforcing: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	a.reconcileState(context.Background())
+
+	if !a.Config.Enforce {
+		t.Error("expected Config.Enforce to flip to true after reconcileState")
+	}
+	if fw.initCalls != 1 {
+		t.Errorf("expected firewall.Init to be called once when turning enforcement on, got %d", fw.initCalls)
+	}
+	found := false
+	for _, l := range *logs {
+		if strings.Contains(l, "enforcement turned ON") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected a log line announcing enforcement turned on, got: %v", *logs)
+	}
+}
+
+func TestAgent_ReconcileState_PicksUpEnforceOffFromDisk(t *testing.T) {
+	a, _, _, logs := newTestAgent(t, true)
+
+	if err := SaveState(a.Config.DataDir, State{Enforcing: false}); err != nil {
+		t.Fatal(err)
+	}
+
+	a.reconcileState(context.Background())
+
+	if a.Config.Enforce {
+		t.Error("expected Config.Enforce to flip to false after reconcileState")
+	}
+	found := false
+	for _, l := range *logs {
+		if strings.Contains(l, "enforcement turned OFF") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected a log line announcing enforcement turned off, got: %v", *logs)
+	}
+}
+
 func TestState_LoadState_FreshDataDir_DefaultsTo24hDryRun(t *testing.T) {
 	dir := t.TempDir()
 	s, err := LoadState(dir)

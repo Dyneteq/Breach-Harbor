@@ -42,10 +42,10 @@ type Event struct {
 // ProbeResult is what Probe reports about a Source's availability on
 // this host.
 type ProbeResult struct {
-	Source    string
-	Available bool
-	Detail    string
-	Err       error
+	Source    string `json:"source"`
+	Available bool   `json:"available"`
+	Detail    string `json:"detail"`
+	Err       error  `json:"error,omitempty"`
 }
 
 // Source is one pluggable observation source.

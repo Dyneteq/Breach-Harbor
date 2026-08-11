@@ -109,6 +109,14 @@ func (a *Agent) Run(ctx context.Context) error {
 	ticker := time.NewTicker(refresh)
 	defer ticker.Stop()
 
+	// stateTicker lets a separate `breachharbor agent enforce --on/--off`
+	// invocation actually change this live process's behavior — Run
+	// only reads Config.Enforce once at startup otherwise, so without
+	// this a running agent would never notice enforce was toggled
+	// short of a restart.
+	stateTicker := time.NewTicker(3 * time.Second)
+	defer stateTicker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -118,7 +126,31 @@ func (a *Agent) Run(ctx context.Context) error {
 			a.handleEvent(ctx, ev)
 		case <-ticker.C:
 			go a.refreshFeeds(ctx)
+		case <-stateTicker.C:
+			a.reconcileState(ctx)
 		}
+	}
+}
+
+// reconcileState re-reads the persisted State and applies any
+// enforce-mode change made by a separate `agent enforce` invocation
+// since the last check.
+func (a *Agent) reconcileState(ctx context.Context) {
+	state, err := LoadState(a.Config.DataDir)
+	if err != nil {
+		return
+	}
+	switch {
+	case state.Enforcing && !a.Config.Enforce:
+		if err := a.Firewall.Init(ctx); err != nil {
+			a.Logf("[%s] enforce --on requested but firewall init failed: %v", ts(time.Now()), err)
+			return
+		}
+		a.Config.Enforce = true
+		a.Logf("[%s] enforcement turned ON (agent enforce --on)", ts(time.Now()))
+	case !state.Enforcing && a.Config.Enforce:
+		a.Config.Enforce = false
+		a.Logf("[%s] enforcement turned OFF (agent enforce --off) — already-blocked IPs remain blocked, run `agent flush` to remove them", ts(time.Now()))
 	}
 }
 

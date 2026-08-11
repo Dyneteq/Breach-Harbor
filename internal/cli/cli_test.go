@@ -101,15 +101,15 @@ func TestMain_Agent_UnknownSubcommand(t *testing.T) {
 	}
 }
 
-func TestMain_Agent_UnimplementedSubcommandsAreExplicit(t *testing.T) {
-	for _, sub := range []string{"run", "install", "uninstall", "status", "top", "enforce", "sources", "enroll"} {
-		_, stderr, code := run("agent", sub)
-		if code != 1 {
-			t.Errorf("agent %s: code = %d, want 1", sub, code)
-		}
-		if !strings.Contains(stderr, "not implemented") {
-			t.Errorf("agent %s: expected a clear not-implemented message, got %q", sub, stderr)
-		}
+func TestMain_Agent_Enroll_StillUnimplemented(t *testing.T) {
+	// enroll is explicitly out of scope for M1 (M2 work) — every other
+	// agent subcommand is real now; see agent_*_test.go for those.
+	_, stderr, code := run("agent", "enroll")
+	if code != 1 {
+		t.Errorf("code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr, "not implemented") {
+		t.Errorf("expected a clear not-implemented message, got %q", stderr)
 	}
 }
 

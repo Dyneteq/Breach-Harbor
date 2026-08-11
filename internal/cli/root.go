@@ -7,6 +7,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 // Main is the shared entry point for both the breachharbor and bh
@@ -16,7 +19,11 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		printUsage(stderr)
 		return 2
 	}
-	ctx := context.Background()
+	// Cancelled on SIGINT/SIGTERM — every long-running foreground loop
+	// (`agent run`, `agent top --watch`) depends on this to exit
+	// cleanly on Ctrl+C rather than hanging forever.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	switch args[1] {
 	case "agent":
 		return runAgentCmd(ctx, args[2:], stdout, stderr)
