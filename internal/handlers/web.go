@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"breach-harbor-core/internal/models"
-	"breach-harbor-core/internal/services"
+	"github.com/Dyneteq/Breach-Harbor/internal/models"
+	"github.com/Dyneteq/Breach-Harbor/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -200,7 +200,7 @@ func (h *WebHandler) HandleLogin(c *gin.Context) {
 	// Redirect to dashboard
 	c.Header("HX-Redirect", "/dashboard")
 	c.Status(http.StatusOK)
-	
+
 	_ = user // Use the user variable to avoid compiler warning
 }
 
@@ -265,7 +265,7 @@ func (h *WebHandler) HandleRegister(c *gin.Context) {
 func (h *WebHandler) HandleLogout(c *gin.Context) {
 	// Clear authentication cookie
 	c.SetCookie("auth_token", "", -1, "/", "", false, true)
-	
+
 	// Redirect to login
 	c.Header("HX-Redirect", "/login")
 	c.Status(http.StatusOK)
@@ -273,7 +273,7 @@ func (h *WebHandler) HandleLogout(c *gin.Context) {
 
 func (h *WebHandler) HandleCreateCollector(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	
+
 	name := c.PostForm("name")
 	ip := c.PostForm("ip")
 
@@ -307,7 +307,7 @@ func (h *WebHandler) HandleCreateCollector(c *gin.Context) {
 		"collectors": collectors,
 		"success":    "Collector created successfully!",
 	})
-	
+
 	_ = collector // Use the collector variable to avoid compiler warning
 }
 
@@ -319,7 +319,7 @@ func (h *WebHandler) HandleDeleteCollector(c *gin.Context) {
 	// For now, just redirect back to collectors page
 	c.Header("HX-Redirect", "/collectors")
 	c.Status(http.StatusOK)
-	
-	_ = userID        // Use variables to avoid compiler warnings
+
+	_ = userID // Use variables to avoid compiler warnings
 	_ = collectorName
 }

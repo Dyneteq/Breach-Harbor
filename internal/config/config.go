@@ -8,12 +8,12 @@ import (
 )
 
 type Config struct {
-	Database   DatabaseConfig
-	JWT        JWTConfig
-	Server     ServerConfig
-	MaxMind    MaxMindConfig
-	CORS       CORSConfig
-	LogLevel   string
+	Database DatabaseConfig
+	JWT      JWTConfig
+	Server   ServerConfig
+	MaxMind  MaxMindConfig
+	CORS     CORSConfig
+	LogLevel string
 }
 
 type DatabaseConfig struct {

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"breach-harbor-core/internal/services"
+	"github.com/Dyneteq/Breach-Harbor/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -30,7 +30,7 @@ func NewCollectorHandler(collectorService *services.CollectorService) *Collector
 
 func (h *CollectorHandler) GetCollectors(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	
+
 	collectors, err := h.collectorService.GetCollectorsByUserID(userID.(uint))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get collectors"})
@@ -42,7 +42,7 @@ func (h *CollectorHandler) GetCollectors(c *gin.Context) {
 
 func (h *CollectorHandler) CreateCollector(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	
+
 	var req CreateCollectorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -73,7 +73,7 @@ func (h *CollectorHandler) GetCollectorByName(c *gin.Context) {
 
 func (h *CollectorHandler) CreateIncident(c *gin.Context) {
 	collectorToken, _ := c.Get("collector_token")
-	
+
 	var req CreateIncidentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -96,7 +96,7 @@ func (h *CollectorHandler) CreateIncident(c *gin.Context) {
 
 func (h *CollectorHandler) GetIncidents(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	
+
 	incidents, err := h.collectorService.GetIncidentsByUserID(userID.(uint))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get incidents"})
@@ -109,7 +109,7 @@ func (h *CollectorHandler) GetIncidents(c *gin.Context) {
 func (h *CollectorHandler) GetIncidentByID(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	idStr := c.Param("id")
-	
+
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid incident ID"})
@@ -128,7 +128,7 @@ func (h *CollectorHandler) GetIncidentByID(c *gin.Context) {
 func (h *CollectorHandler) GetIncidentsByCollector(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	collectorName := c.Param("name")
-	
+
 	incidents, err := h.collectorService.GetIncidentsByCollectorName(userID.(uint), collectorName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get incidents"})

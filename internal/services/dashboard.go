@@ -3,7 +3,7 @@ package services
 import (
 	"time"
 
-	"breach-harbor-core/internal/models"
+	"github.com/Dyneteq/Breach-Harbor/internal/models"
 
 	"gorm.io/gorm"
 )
@@ -13,13 +13,13 @@ type DashboardService struct {
 }
 
 type DashboardStats struct {
-	TotalIncidents      int64                    `json:"total_incidents"`
-	TotalIPAddresses    int64                    `json:"total_ip_addresses"`
-	Last24HourIncidents int64                    `json:"last_24_hour_incidents"`
-	TotalCollectors     int64                    `json:"total_collectors"`
-	IncidentsByCountry  []CountryIncidentCount   `json:"incidents_by_country"`
-	HourlyIncidents     []HourlyIncidentCount    `json:"hourly_incidents"`
-	RecentIncidents     []models.Incident        `json:"recent_incidents"`
+	TotalIncidents      int64                  `json:"total_incidents"`
+	TotalIPAddresses    int64                  `json:"total_ip_addresses"`
+	Last24HourIncidents int64                  `json:"last_24_hour_incidents"`
+	TotalCollectors     int64                  `json:"total_collectors"`
+	IncidentsByCountry  []CountryIncidentCount `json:"incidents_by_country"`
+	HourlyIncidents     []HourlyIncidentCount  `json:"hourly_incidents"`
+	RecentIncidents     []models.Incident      `json:"recent_incidents"`
 }
 
 type CountryIncidentCount struct {

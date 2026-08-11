@@ -4,8 +4,8 @@ import (
 	"errors"
 	"time"
 
-	"breach-harbor-core/internal/config"
-	"breach-harbor-core/internal/models"
+	"github.com/Dyneteq/Breach-Harbor/internal/config"
+	"github.com/Dyneteq/Breach-Harbor/internal/models"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -42,7 +42,7 @@ func (s *AuthService) CheckPasswordHash(password, hash string) bool {
 
 func (s *AuthService) GenerateJWT(user *models.User) (string, error) {
 	expirationTime := time.Now().Add(time.Duration(s.config.JWT.ExpiryMinutes) * time.Minute)
-	
+
 	claims := &Claims{
 		UserID: user.ID,
 		Email:  user.Email,
@@ -58,7 +58,7 @@ func (s *AuthService) GenerateJWT(user *models.User) (string, error) {
 
 func (s *AuthService) ValidateJWT(tokenString string) (*Claims, error) {
 	claims := &Claims{}
-	
+
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		return []byte(s.config.JWT.Secret), nil
 	})
