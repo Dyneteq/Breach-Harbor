@@ -285,7 +285,7 @@ func (h *WebHandler) HandleCreateCollector(c *gin.Context) {
 		return
 	}
 
-	collector, err := h.collectorService.CreateCollector(userID.(uint), name, ip)
+	collector, token, err := h.collectorService.CreateCollector(userID.(uint), name, ip)
 	if err != nil {
 		c.HTML(http.StatusBadRequest, "collectors.html", gin.H{
 			"title": "Collectors - BREACH::HARBOR",
@@ -300,26 +300,28 @@ func (h *WebHandler) HandleCreateCollector(c *gin.Context) {
 		collectors = []models.Collector{}
 	}
 
-	// Return success and redirect
-	c.Header("HX-Redirect", "/collectors")
+	// The plaintext token is only ever available right here, at
+	// creation (the database only stores its hash) — render it inline
+	// instead of the old HX-Redirect, which would have discarded it.
 	c.HTML(http.StatusOK, "collectors.html", gin.H{
-		"title":      "Collectors - BREACH::HARBOR",
-		"collectors": collectors,
-		"success":    "Collector created successfully!",
+		"title":            "Collectors - BREACH::HARBOR",
+		"collectors":       collectors,
+		"success":          "Collector created successfully! Copy its token now — it won't be shown again.",
+		"newToken":         token,
+		"newCollectorName": collector.Name,
 	})
-
-	_ = collector // Use the collector variable to avoid compiler warning
 }
 
 func (h *WebHandler) HandleDeleteCollector(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	collectorName := c.Param("name")
 
-	// Here you would implement the delete logic
-	// For now, just redirect back to collectors page
-	c.Header("HX-Redirect", "/collectors")
-	c.Status(http.StatusOK)
+	if err := h.collectorService.DeleteCollector(userID.(uint), collectorName); err != nil {
+		c.String(http.StatusNotFound, "")
+		return
+	}
 
-	_ = userID // Use variables to avoid compiler warnings
-	_ = collectorName
+	// The delete button targets this card with hx-swap="outerHTML" —
+	// an empty 200 response removes it from the page.
+	c.Status(http.StatusOK)
 }

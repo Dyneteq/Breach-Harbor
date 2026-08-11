@@ -49,13 +49,18 @@ func (h *CollectorHandler) CreateCollector(c *gin.Context) {
 		return
 	}
 
-	collector, err := h.collectorService.CreateCollector(userID.(uint), req.Name, req.IP)
+	collector, token, err := h.collectorService.CreateCollector(userID.(uint), req.Name, req.IP)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to create collector"})
 		return
 	}
 
-	c.JSON(http.StatusCreated, collector)
+	// token is only ever available here, at creation — the database
+	// only ever stores its hash (models.Collector.TokenHash).
+	c.JSON(http.StatusCreated, gin.H{
+		"collector": collector,
+		"token":     token,
+	})
 }
 
 func (h *CollectorHandler) GetCollectorByName(c *gin.Context) {

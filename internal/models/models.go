@@ -36,13 +36,18 @@ type Location struct {
 	IsInEuropeanUnion   bool      `json:"is_in_european_union"`
 	IsAnonymousProxy    bool      `json:"is_anonymous_proxy"`
 	IsSatelliteProvider bool      `json:"is_satellite_provider"`
-	IsLegitimateProxy   bool      `json:"is_legitimate_proxy"`
-	IsDatacenter        bool      `json:"is_datacenter"`
-	IsResidential       bool      `json:"is_residential"`
-	IsTorExitNode       bool      `json:"is_tor_exit_node"`
-	IsHostingProvider   bool      `json:"is_hosting_provider"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	// IsLegitimateProxy was dropped (PLAN.md M2 data model changes): the
+	// free GeoLite2-City edition's Traits struct (see
+	// github.com/oschwald/geoip2-golang's City type) only ever carries
+	// IsAnonymousProxy/IsSatelliteProvider — is_legitimate_proxy is a
+	// GeoIP2 Enterprise (paid) field, verified directly against the
+	// vendored library source rather than assumed.
+	IsDatacenter      bool      `json:"is_datacenter"`
+	IsResidential     bool      `json:"is_residential"`
+	IsTorExitNode     bool      `json:"is_tor_exit_node"`
+	IsHostingProvider bool      `json:"is_hosting_provider"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
 
 	IPAddresses []IPAddress `json:"ip_addresses,omitempty"`
 }
@@ -58,11 +63,15 @@ type IPAddress struct {
 	Incidents []Incident `json:"incidents,omitempty"`
 }
 
+// Collector represents an enrolled agent. The bearer token is never
+// stored: only its SHA-256 hash is persisted (TokenHash), and the
+// plaintext is returned to the caller exactly once, at creation time
+// (GitHub-PAT-style) — see services.CollectorService.CreateCollector.
 type Collector struct {
 	ID         uint       `gorm:"primaryKey" json:"id"`
 	Name       string     `gorm:"unique;not null" json:"name" validate:"required"`
 	IP         string     `json:"ip" validate:"required,ip"`
-	Token      string     `gorm:"unique;not null" json:"token"`
+	TokenHash  string     `gorm:"uniqueIndex;not null" json:"-"`
 	UserID     uint       `json:"user_id"`
 	LastOnline *time.Time `json:"last_online"`
 	CreatedAt  time.Time  `json:"created_at"`
