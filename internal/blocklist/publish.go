@@ -40,6 +40,13 @@ func (p *Publisher) Current() (*SignedBlocklist, bool) {
 	return p.current, p.current != nil
 }
 
+// Refresh forces one publish cycle synchronously, outside of Run's
+// ticker — used by tests, and available for a future `server run
+// --publish-now`-style operator trigger.
+func (p *Publisher) Refresh(ctx context.Context) {
+	p.refresh(ctx)
+}
+
 // Run publishes once immediately (so GET /v1/blocklist has something
 // to serve right after the server starts, not just after the first
 // tick) and then on every Interval, until ctx is cancelled.
