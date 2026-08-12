@@ -95,9 +95,26 @@
                     </h1>
                     <p class="text-muted">Manage your data collection agents</p>
                 </div>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCollectorModal">
-                    <i class="fas fa-plus me-2"></i>Add Collector
-                </button>
+                <div>
+                    <button class="btn btn-outline-secondary me-2" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#local-agent-collapse"
+                            aria-expanded="false" aria-controls="local-agent-collapse">
+                        <i class="fas fa-robot me-2"></i>Local Agent
+                    </button>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCollectorModal">
+                        <i class="fas fa-plus me-2"></i>Add Collector
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="collapse mb-4" id="local-agent-collapse">
+        <div id="local-agent-panel" hx-get="/api/web/local-agent" hx-trigger="revealed" hx-swap="outerHTML">
+            <div class="card mb-4">
+                <div class="card-body text-muted">
+                    <i class="fas fa-spinner fa-spin me-2"></i>Loading local agent status&hellip;
+                </div>
             </div>
         </div>
     </div>

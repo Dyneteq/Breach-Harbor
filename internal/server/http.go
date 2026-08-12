@@ -47,8 +47,10 @@ func (s *Server) buildRouter() *gin.Engine {
 			v1.GET("/incidents/:id", collectorHandler.GetIncidentByID)
 
 			v1.GET("/dashboard", dashboardHandler.GetStats)
+			v1.GET("/dashboard/attack-map", dashboardHandler.GetAttackMap)
 			v1.GET("/ip-addresses", dashboardHandler.GetIPAddresses)
 			v1.GET("/ip-addresses/:ip", dashboardHandler.GetIPAddressDetails)
+			v1.GET("/ip-addresses/:ip/attack-map", dashboardHandler.GetIPAttackMap)
 		}
 	}
 

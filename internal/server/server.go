@@ -162,7 +162,7 @@ func New(cfg Config, appCfg *config.Config) (*Server, error) {
 		db:               db,
 		authService:      services.NewAuthService(db, appCfg),
 		collectorService: services.NewCollectorService(db, locationService),
-		dashboardService: services.NewDashboardService(db),
+		dashboardService: services.NewDashboardService(db, locationService),
 		locationService:  locationService,
 		signer:           signer,
 		torFeed:          feed.NewCachedProvider(feed.NewTor(), cfg.DataDir, 15*time.Minute),

@@ -117,6 +117,16 @@ Static binary, no CGO, ~8MB image. Healthcheck is just `breachharbor doctor --js
 PRs welcome: fork, branch, and open a pull request. Add tests: this runs as root and edits
 firewalls, so untested code doesn't ship.
 
+## Attribution
+
+IP geolocation/ASN enrichment is powered by one of these, whichever database you install into
+`./data` (see `scripts/download-geoip.sh` and `scripts/download-geoip-dbip.sh`):
+
+- [MaxMind GeoLite2](https://www.maxmind.com) - this product includes GeoLite2 data created by
+  MaxMind, available from [maxmind.com](https://www.maxmind.com).
+- [DB-IP](https://db-ip.com) - IP geolocation by DB-IP, licensed under
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
 ## License
 
 [GPL-3.0](https://github.com/Dyneteq/Breach-Harbor/blob/master/LICENCE)

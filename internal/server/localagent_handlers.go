@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// These handlers back the "Local Agent" panel on the dashboard
+// These handlers back the "Local Agent" panel on the collectors page
 // (templates/local_agent.html): a one-click way to run a real
 // agent.Agent against the machine the server itself is on, without a
 // separate `breachharbor agent run` / `agent enroll` round trip. Every
