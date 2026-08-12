@@ -163,6 +163,21 @@ func (win *Window) BlockEligible(now time.Time, weights ScoreWeights) bool {
 	return win.Score(now, weights) >= weights.Threshold
 }
 
+// countInLast counts this window's still-tracked events matching
+// reason that happened within the last d — a display-only figure
+// (the live status log's "N fails/60s"), independent of Score's own
+// decay window (Weights.Window, 10 minutes by default).
+func (win *Window) countInLast(now time.Time, reason string, d time.Duration) int {
+	cutoff := now.Add(-d)
+	n := 0
+	for _, e := range win.Events {
+		if e.Reason == reason && e.Time.After(cutoff) {
+			n++
+		}
+	}
+	return n
+}
+
 // Sources returns the deduped set of reasons behind this window's
 // events, in first-seen order, e.g. ["ssh", "feed:spamhaus"].
 func (win *Window) Sources() []string {

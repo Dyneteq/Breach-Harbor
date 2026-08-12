@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +16,12 @@ import (
 	"github.com/Dyneteq/Breach-Harbor/internal/logsource"
 	"github.com/Dyneteq/Breach-Harbor/internal/store"
 )
+
+// summaryInterval is how often Run emits a "summary" line — a fixed
+// heartbeat cadence distinct from the feed/upload ticker (Config.Refresh,
+// default 15m, far too infrequent for a live-status view) and the
+// 3s state-reconcile ticker (far too chatty for a summary).
+const summaryInterval = 2 * time.Minute
 
 // Agent wires everything together: logsource.Sources feed Events into
 // a per-IP sliding-window score (offender.go), scored offenders are
@@ -43,6 +50,14 @@ type Agent struct {
 	// it needs no lock (handleEvent is called synchronously from
 	// Run's single select loop, never concurrently).
 	windows map[string]*Window
+
+	// totalSeen/totalFlagged/totalBlocked back the periodic "summary"
+	// line. Loop-local like windows above — only handleEvent/block and
+	// the summary ticker (both driven from Run's single select loop)
+	// ever touch them.
+	totalSeen    int
+	totalFlagged int
+	totalBlocked int
 
 	feedMu           sync.RWMutex
 	feedEntries      []feed.Entry
@@ -109,10 +124,12 @@ func (a *Agent) Run(ctx context.Context) error {
 		go func(s logsource.Source) {
 			defer wg.Done()
 			if err := s.Watch(ctx, events); err != nil && ctx.Err() == nil {
-				a.Logf("[%s] source %s stopped: %v", ts(time.Now()), s.Name(), err)
+				a.emit(time.Now(), "warn", "source %s stopped: %v", s.Name(), err)
 			}
 		}(src)
 	}
+
+	a.emitReadyAndMode(time.Now(), state)
 
 	refresh := a.Config.Refresh
 	if refresh <= 0 {
@@ -129,10 +146,24 @@ func (a *Agent) Run(ctx context.Context) error {
 	stateTicker := time.NewTicker(3 * time.Second)
 	defer stateTicker.Stop()
 
+	// summaryTicker drives the periodic "summary" line — see
+	// summaryInterval's doc comment for why it's its own ticker rather
+	// than reusing one of the two above.
+	summaryTicker := time.NewTicker(summaryInterval)
+	defer summaryTicker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			wg.Wait()
+			// One last summary on a clean shutdown, so even a short
+			// dev/test run shows a final tally instead of cutting off
+			// mid-stream — skipped entirely if nothing was ever seen,
+			// so a Ctrl+C two seconds after startup doesn't print a
+			// pointless "0 seen / 0 flagged / 0 blocked".
+			if a.totalSeen > 0 {
+				a.emitSummary(time.Now())
+			}
 			return nil
 		case ev := <-events:
 			a.handleEvent(ctx, ev)
@@ -143,8 +174,41 @@ func (a *Agent) Run(ctx context.Context) error {
 			}
 		case <-stateTicker.C:
 			a.reconcileState(ctx)
+		case <-summaryTicker.C:
+			a.emitSummary(time.Now())
 		}
 	}
+}
+
+// emitReadyAndMode prints the two lines that open the marketing
+// site's terminal demo (index.html): what's being tailed, and
+// whether the agent is observing or enforcing right now.
+func (a *Agent) emitReadyAndMode(now time.Time, state State) {
+	if len(a.Sources) == 0 {
+		a.emit(now, "ready", "no log sources detected — running with zero visibility")
+	} else {
+		names := make([]string, 0, len(a.Sources))
+		for _, s := range a.Sources {
+			names = append(names, s.Name())
+		}
+		a.emit(now, "ready", "tailing %s", strings.Join(names, ", "))
+	}
+
+	if a.Config.Enforce {
+		a.emit(now, "mode", "enforce · blocking live")
+		return
+	}
+	remaining := time.Until(state.DryRunUntil)
+	if remaining > 0 {
+		a.emit(now, "mode", "observe · %s to enforcement", formatDuration(remaining))
+	} else {
+		a.emit(now, "mode", "observe · dry run window elapsed, still not enforcing (run `breachharbor agent enforce --on`)")
+	}
+}
+
+// emitSummary prints the periodic running-totals line.
+func (a *Agent) emitSummary(now time.Time) {
+	a.emit(now, "summary", "%s seen / %s flagged / %s blocked", formatCount(a.totalSeen), formatCount(a.totalFlagged), formatCount(a.totalBlocked))
 }
 
 // reconcileState re-reads the persisted State and applies any
@@ -158,14 +222,14 @@ func (a *Agent) reconcileState(ctx context.Context) {
 	switch {
 	case state.Enforcing && !a.Config.Enforce:
 		if err := a.Firewall.Init(ctx); err != nil {
-			a.Logf("[%s] enforce --on requested but firewall init failed: %v", ts(time.Now()), err)
+			a.emit(time.Now(), "error", "enforce --on requested but firewall init failed: %v", err)
 			return
 		}
 		a.Config.Enforce = true
-		a.Logf("[%s] enforcement turned ON (agent enforce --on)", ts(time.Now()))
+		a.emit(time.Now(), "mode", "enforce · blocking live (agent enforce --on)")
 	case !state.Enforcing && a.Config.Enforce:
 		a.Config.Enforce = false
-		a.Logf("[%s] enforcement turned OFF (agent enforce --off) — already-blocked IPs remain blocked, run `agent flush` to remove them", ts(time.Now()))
+		a.emit(time.Now(), "mode", "observe · enforcement turned off (agent enforce --off) — already-blocked IPs remain blocked, run `agent flush` to remove them")
 	}
 }
 
@@ -186,7 +250,7 @@ func (a *Agent) refreshFeeds(ctx context.Context) {
 		}
 		entries, err := p.Fetch(ctx)
 		if err != nil {
-			a.Logf("[%s] feed %s: %v", ts(time.Now()), p.Name(), err)
+			a.emit(time.Now(), "warn", "feed %s: %v", p.Name(), err)
 			continue
 		}
 		merged = append(merged, entries...)
@@ -198,7 +262,7 @@ func (a *Agent) refreshFeeds(ctx context.Context) {
 	a.feedMu.Unlock()
 
 	if len(summaries) > 0 {
-		a.Logf("[%s] feeds: %s", ts(time.Now()), strings.Join(summaries, ", "))
+		a.emit(time.Now(), "feeds", "%s", strings.Join(summaries, ", "))
 	}
 }
 
@@ -228,9 +292,9 @@ func (a *Agent) feedMatch(ip netip.Addr) (string, bool) {
 // local detection alone (PLAN.md's "cache first, ask later").
 func (a *Agent) syncEnrollment(ctx context.Context) {
 	if n, err := a.Uploader.UploadPending(ctx); err != nil {
-		a.Logf("[%s] upload to %s failed (will retry): %v", ts(time.Now()), a.Uploader.Enrollment.ServerURL, err)
+		a.emit(time.Now(), "sync", "upload to %s failed (will retry): %v", a.Uploader.Enrollment.ServerURL, err)
 	} else if n > 0 {
-		a.Logf("[%s] uploaded %d observation(s) to %s", ts(time.Now()), n, a.Uploader.Enrollment.ServerURL)
+		a.emit(time.Now(), "sync", "uploaded %d observation(s) to %s", n, a.Uploader.Enrollment.ServerURL)
 	}
 
 	a.feedMu.RLock()
@@ -242,7 +306,7 @@ func (a *Agent) syncEnrollment(ctx context.Context) {
 
 	merged, err := a.Uploader.RefreshBlocklist(ctx, local)
 	if err != nil {
-		a.Logf("[%s] blocklist refresh: %v", ts(time.Now()), err)
+		a.emit(time.Now(), "warn", "blocklist refresh: %v", err)
 	}
 
 	entries := make([]feed.Entry, 0, len(merged))
@@ -263,6 +327,7 @@ func (a *Agent) handleEvent(ctx context.Context, ev logsource.Event) {
 	if ev.Time.IsZero() {
 		ev.Time = now
 	}
+	a.totalSeen++
 
 	// Queued regardless of enrollment status — a standalone agent's
 	// queue just never drains (store.Observation's doc comment), but an
@@ -274,7 +339,7 @@ func (a *Agent) handleEvent(ctx context.Context, ev logsource.Event) {
 		Time:     ev.Time,
 		Metadata: map[string]string{"source": ev.Source},
 	}); err != nil {
-		a.Logf("[%s] failed to enqueue observation for %s: %v", ts(now), ev.IP, err)
+		a.emit(now, "error", "failed to enqueue observation for %s: %v", ev.IP, err)
 	}
 
 	win := a.windows[ev.IP.String()]
@@ -291,12 +356,16 @@ func (a *Agent) handleEvent(ctx context.Context, ev logsource.Event) {
 
 	existing, found, err := a.Store.GetOffender(ev.IP)
 	if err != nil {
-		a.Logf("[%s] store error for %s: %v", ts(now), ev.IP, err)
+		a.emit(now, "error", "store error for %s: %v", ev.IP, err)
 	}
+	lifetimeEvents := existing.Events + 1
+
+	a.emit(now, "seen", "%-15s %-8s %s", ev.IP, reasonFor(ev.Kind), seenDetail(win, ev, lifetimeEvents, now))
+
 	offender := store.Offender{
 		IP:        ev.IP,
 		Score:     win.Score(now, a.Weights),
-		Events:    existing.Events + 1,
+		Events:    lifetimeEvents,
 		FirstSeen: existing.FirstSeen,
 		LastSeen:  now,
 		Sources:   win.Sources(),
@@ -311,29 +380,31 @@ func (a *Agent) handleEvent(ctx context.Context, ev logsource.Event) {
 	// the real firewall rule) changes that — a windowed score dipping
 	// back under threshold later never auto-unblocks.
 	if nowEligible && !wasEligible && !offender.Blocked {
+		a.totalFlagged++
 		a.block(ctx, &offender, win, ev, now)
 	}
 
 	if err := a.Store.PutOffender(offender); err != nil {
-		a.Logf("[%s] failed to persist offender %s: %v", ts(now), ev.IP, err)
+		a.emit(now, "error", "failed to persist offender %s: %v", ev.IP, err)
 	}
 }
 
 func (a *Agent) block(ctx context.Context, offender *store.Offender, win *Window, ev logsource.Event, now time.Time) {
 	reason := summarize(win, now, a.Weights)
 	if !a.Config.Enforce {
-		a.Logf("[%s] WOULD BLOCK  %-15s %s: %s", ts(now), ev.IP, ev.Source, reason)
+		a.emit(now, "would", "block %-15s (%s)", ev.IP, reason)
 		return
 	}
 	target := firewall.Target{Addr: netip.PrefixFrom(ev.IP, ev.IP.BitLen())}
 	if err := a.Firewall.Block(ctx, []firewall.Target{target}); err != nil {
-		a.Logf("[%s] BLOCK FAILED %-15s %v", ts(now), ev.IP, err)
+		a.emit(now, "error", "block failed for %-15s %v", ev.IP, err)
 		return
 	}
 	blockedAt := now
 	offender.Blocked = true
 	offender.BlockedAt = &blockedAt
-	a.Logf("[%s] BLOCKED      %-15s %s: %s", ts(now), ev.IP, ev.Source, reason)
+	a.totalBlocked++
+	a.emit(now, "block", "%-15s (%s)", ev.IP, reason)
 }
 
 // summarize is the human-readable "why" behind a block decision —
@@ -343,4 +414,76 @@ func summarize(win *Window, now time.Time, weights ScoreWeights) string {
 	return fmt.Sprintf("%s (score %d, threshold %d)", strings.Join(win.Sources(), ", "), win.Score(now, weights), weights.Threshold)
 }
 
-func ts(t time.Time) string { return t.Format("2006-01-02 15:04:05") }
+// emit writes one line of the agent's live status log — HH:MM:SS, a
+// left-aligned tag, then a free-form message. This is the format
+// demoed on the marketing site's terminal animation (index.html):
+// every scrolling line the agent prints, from startup through every
+// observation and block decision, goes through this one function.
+func (a *Agent) emit(now time.Time, tag, format string, args ...any) {
+	a.Logf("%s %-7s %s", now.Format("15:04:05"), tag, fmt.Sprintf(format, args...))
+}
+
+// formatCount renders n with thousands separators, e.g. 1284 ->
+// "1,284" — matches the summary line's style in the marketing site's
+// terminal demo. Hand-rolled rather than pulling in
+// golang.org/x/text/message for one integer format.
+func formatCount(n int) string {
+	s := strconv.Itoa(n)
+	neg := strings.HasPrefix(s, "-")
+	if neg {
+		s = s[1:]
+	}
+	var parts []string
+	for len(s) > 3 {
+		parts = append([]string{s[len(s)-3:]}, parts...)
+		s = s[:len(s)-3]
+	}
+	parts = append([]string{s}, parts...)
+	out := strings.Join(parts, ",")
+	if neg {
+		out = "-" + out
+	}
+	return out
+}
+
+// formatDuration renders a duration the way the "mode" line's time-to-
+// enforcement figure does: "23h58m" / "3h12m" / "46s" — coarser than
+// time.Duration.String(), no sub-second noise. Duplicated from
+// internal/cli/output.go's identical helper rather than shared across
+// the package boundary — see internal/agent/systemd.go's doc comment
+// on this repo's convention of small, deliberate duplication over
+// cross-package coupling for a function this size.
+func formatDuration(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
+	d = d.Round(time.Second)
+	h := d / time.Hour
+	d -= h * time.Hour
+	m := d / time.Minute
+	d -= m * time.Minute
+	s := d / time.Second
+	switch {
+	case h > 0:
+		return fmt.Sprintf("%dh%dm", h, m)
+	case m > 0:
+		return fmt.Sprintf("%dm%ds", m, s)
+	default:
+		return fmt.Sprintf("%ds", s)
+	}
+}
+
+// seenDetail is the third column of a "seen" line — a short,
+// kind-specific description of what was just observed.
+func seenDetail(win *Window, ev logsource.Event, lifetimeCount int, now time.Time) string {
+	switch ev.Kind {
+	case logsource.EventSSHFailedLogin:
+		return fmt.Sprintf("%d fails/60s", win.countInLast(now, reasonFor(ev.Kind), 60*time.Second))
+	case logsource.EventHTTPSuspicious:
+		return fmt.Sprintf("sweep ×%d", lifetimeCount)
+	case logsource.EventFail2banBan:
+		return "already banned by fail2ban"
+	default:
+		return "observed"
+	}
+}

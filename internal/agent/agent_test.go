@@ -63,6 +63,21 @@ func sshEvent(ip netip.Addr) logsource.Event {
 	return logsource.Event{Source: "auth.log", Kind: logsource.EventSSHFailedLogin, IP: ip, Time: time.Now()}
 }
 
+// hasTag reports whether any line in lines has tag as its second
+// whitespace-separated field — the live-status log's format is
+// "HH:MM:SS <tag>  <message>" (see Agent.emit), and strings.Fields
+// collapses the tag column's padding so this is robust to width
+// changes there.
+func hasTag(lines []string, tag string) bool {
+	for _, l := range lines {
+		fields := strings.Fields(l)
+		if len(fields) >= 2 && fields[1] == tag {
+			return true
+		}
+	}
+	return false
+}
+
 func TestAgent_DryRun_LogsWouldBlockOnThresholdCross_NeverTouchesFirewall(t *testing.T) {
 	a, st, fw, logs := newTestAgent(t, false)
 	ip := mustAddr(t, "203.0.113.44")
@@ -86,14 +101,8 @@ func TestAgent_DryRun_LogsWouldBlockOnThresholdCross_NeverTouchesFirewall(t *tes
 		t.Errorf("dry run must never call firewall.Block, got %d calls", fw.blockCalls)
 	}
 
-	found := false
-	for _, l := range *logs {
-		if strings.Contains(l, "WOULD BLOCK") {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected a WOULD BLOCK log line once threshold crossed, got logs: %v", *logs)
+	if !hasTag(*logs, "would") {
+		t.Errorf("expected a 'would' log line once threshold crossed, got logs: %v", *logs)
 	}
 }
 
@@ -119,14 +128,8 @@ func TestAgent_Enforcing_BlocksOnThresholdCross_ExactlyOnce(t *testing.T) {
 		t.Errorf("expected exactly 1 firewall.Block call (sticky — no re-block on later events), got %d", fw.blockCalls)
 	}
 
-	found := false
-	for _, l := range *logs {
-		if strings.Contains(l, "BLOCKED") && !strings.Contains(l, "FAILED") {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected a BLOCKED log line, got logs: %v", *logs)
+	if !hasTag(*logs, "block") {
+		t.Errorf("expected a 'block' log line, got logs: %v", *logs)
 	}
 }
 
@@ -191,12 +194,12 @@ func TestAgent_BlockFailure_DoesNotMarkBlocked(t *testing.T) {
 	}
 	found := false
 	for _, l := range *logs {
-		if strings.Contains(l, "BLOCK FAILED") {
+		if strings.Contains(l, "block failed") {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("expected a BLOCK FAILED log line, got: %v", *logs)
+		t.Errorf("expected a block-failed log line, got: %v", *logs)
 	}
 }
 
@@ -216,14 +219,8 @@ func TestAgent_ReconcileState_PicksUpEnforceOnFromDisk(t *testing.T) {
 	if fw.initCalls != 1 {
 		t.Errorf("expected firewall.Init to be called once when turning enforcement on, got %d", fw.initCalls)
 	}
-	found := false
-	for _, l := range *logs {
-		if strings.Contains(l, "enforcement turned ON") {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected a log line announcing enforcement turned on, got: %v", *logs)
+	if !hasTag(*logs, "mode") {
+		t.Errorf("expected a 'mode' log line announcing enforcement turned on, got: %v", *logs)
 	}
 }
 
@@ -239,14 +236,123 @@ func TestAgent_ReconcileState_PicksUpEnforceOffFromDisk(t *testing.T) {
 	if a.Config.Enforce {
 		t.Error("expected Config.Enforce to flip to false after reconcileState")
 	}
+	if !hasTag(*logs, "mode") {
+		t.Errorf("expected a 'mode' log line announcing enforcement turned off, got: %v", *logs)
+	}
+}
+
+func TestAgent_HandleEvent_EmitsSeenLineForEveryEvent(t *testing.T) {
+	a, _, _, logs := newTestAgent(t, false)
+	ip := mustAddr(t, "203.0.113.44")
+
+	// Below block-eligible threshold — must still get a "seen" line;
+	// "seen" is not gated on the block decision at all.
+	a.handleEvent(context.Background(), sshEvent(ip))
+
+	if !hasTag(*logs, "seen") {
+		t.Errorf("expected a 'seen' log line for a sub-threshold event, got: %v", *logs)
+	}
 	found := false
 	for _, l := range *logs {
-		if strings.Contains(l, "enforcement turned OFF") {
+		if strings.Contains(l, ip.String()) && strings.Contains(l, "fails/60s") {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("expected a log line announcing enforcement turned off, got: %v", *logs)
+		t.Errorf("expected the seen line to include the IP and a fails/60s rate, got: %v", *logs)
+	}
+}
+
+func TestAgent_HandleEvent_SeenLineRateIncreasesWithRepeatedEvents(t *testing.T) {
+	a, _, _, logs := newTestAgent(t, false)
+	ip := mustAddr(t, "203.0.113.44")
+
+	for i := 0; i < 3; i++ {
+		a.handleEvent(context.Background(), sshEvent(ip))
+	}
+
+	if !containsSubstring(*logs, "3 fails/60s") {
+		t.Errorf("expected the 3rd seen line to report '3 fails/60s', got: %v", *logs)
+	}
+}
+
+func containsSubstring(lines []string, substr string) bool {
+	for _, l := range lines {
+		if strings.Contains(l, substr) {
+			return true
+		}
+	}
+	return false
+}
+
+func TestAgent_TotalCounters_TrackSeenFlaggedBlocked(t *testing.T) {
+	a, _, _, _ := newTestAgent(t, true)
+	ip := mustAddr(t, "203.0.113.44")
+
+	for i := 0; i < 6; i++ { // 6 x +15 = 90 >= threshold 50, crosses once
+		a.handleEvent(context.Background(), sshEvent(ip))
+	}
+
+	if a.totalSeen != 6 {
+		t.Errorf("totalSeen = %d, want 6", a.totalSeen)
+	}
+	if a.totalFlagged != 1 {
+		t.Errorf("totalFlagged = %d, want 1 (only the crossing event, sticky after)", a.totalFlagged)
+	}
+	if a.totalBlocked != 1 {
+		t.Errorf("totalBlocked = %d, want 1", a.totalBlocked)
+	}
+}
+
+func TestAgent_EmitSummary_ReportsCountsWithThousandsSeparator(t *testing.T) {
+	a, _, _, logs := newTestAgent(t, false)
+	a.totalSeen = 1284
+	a.totalFlagged = 6
+	a.totalBlocked = 0
+
+	a.emitSummary(time.Now())
+
+	if !containsSubstring(*logs, "1,284 seen / 6 flagged / 0 blocked") {
+		t.Errorf("expected a formatted summary line, got: %v", *logs)
+	}
+}
+
+func TestFormatCount_ThousandsSeparators(t *testing.T) {
+	cases := map[int]string{0: "0", 5: "5", 999: "999", 1000: "1,000", 1284: "1,284", 1234567: "1,234,567", -1234: "-1,234"}
+	for n, want := range cases {
+		if got := formatCount(n); got != want {
+			t.Errorf("formatCount(%d) = %q, want %q", n, got, want)
+		}
+	}
+}
+
+func TestEmitReadyAndMode_DryRun(t *testing.T) {
+	a, _, _, logs := newTestAgent(t, false)
+	a.Sources = nil // exercise the "no sources detected" branch separately below
+
+	a.emitReadyAndMode(time.Now(), State{DryRunUntil: time.Now().Add(2 * time.Hour)})
+
+	if !hasTag(*logs, "ready") {
+		t.Errorf("expected a 'ready' log line, got: %v", *logs)
+	}
+	if !hasTag(*logs, "mode") {
+		t.Errorf("expected a 'mode' log line, got: %v", *logs)
+	}
+	if !containsSubstring(*logs, "no log sources detected") {
+		t.Errorf("expected the ready line to flag zero detected sources, got: %v", *logs)
+	}
+	if !containsSubstring(*logs, "observe") {
+		t.Errorf("expected the mode line to say 'observe' in dry run, got: %v", *logs)
+	}
+}
+
+func TestEmitReadyAndMode_Enforcing(t *testing.T) {
+	a, _, _, logs := newTestAgent(t, true)
+
+	a.emitReadyAndMode(time.Now(), State{})
+
+	if !containsSubstring(*logs, "enforce") {
+		t.Errorf("expected the mode line to say 'enforce' when Config.Enforce is true, got: %v", *logs)
 	}
 }
 
