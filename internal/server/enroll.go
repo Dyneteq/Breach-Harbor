@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -27,6 +28,13 @@ func (s *Server) handleEnroll(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "collector not found"})
 		return
+	}
+
+	// Best-effort: the agent's enrollment response below doesn't
+	// depend on this write succeeding, so a DB hiccup here logs
+	// rather than failing an otherwise-successful enroll.
+	if err := s.collectorService.MarkEnrolled(collector.ID); err != nil {
+		log.Printf("mark collector %d enrolled: %v", collector.ID, err)
 	}
 
 	c.JSON(http.StatusOK, enrollResponse{

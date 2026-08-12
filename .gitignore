@@ -69,3 +69,6 @@ coverage.html
 # Temporary files
 tmp/
 temp/
+
+# Local dev scratch data (server/agent --data-dir while developing)
+.dev/
