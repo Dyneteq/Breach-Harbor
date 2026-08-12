@@ -15,6 +15,7 @@
 
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </head>
 <body>
     <!-- Navigation -->
@@ -281,6 +282,16 @@
                         </span>
                     </summary>
                     <div class="card-body pt-2">
+                        {{if .Flow}}
+                        <details class="nft-flow-details mb-3">
+                            <summary class="small text-primary">
+                                <i class="fas fa-project-diagram me-1"></i>Show rule flow diagram
+                            </summary>
+                            <div class="nft-flow-canvas mt-2">
+                                <pre class="mermaid">{{.Flow}}</pre>
+                            </div>
+                        </details>
+                        {{end}}
                         {{if .Sets}}
                         <div class="nft-sets">
                             {{range .Sets}}
@@ -373,6 +384,25 @@
     function logout() {
         fetch('/api/web/logout', { method: 'POST' })
             .then(() => window.location.href = '/login');
+    }
+
+    // Flow diagrams (default security level — labels are always plain
+    // text, never HTML, since they're built from a monitored host's
+    // own self-reported chain names) live inside collapsed <details>.
+    // Render lazily on first expand: mermaid measures its container's
+    // width to lay out the graph, and a closed <details> has zero
+    // width, which produces a garbled or invisible SVG if rendered
+    // while still hidden.
+    if (window.mermaid) {
+        mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+        document.querySelectorAll('.nft-flow-details').forEach(function (d) {
+            d.addEventListener('toggle', function () {
+                if (d.open && !d.dataset.rendered) {
+                    d.dataset.rendered = '1';
+                    mermaid.run({ nodes: d.querySelectorAll('.mermaid') });
+                }
+            });
+        });
     }
     </script>
 </body>

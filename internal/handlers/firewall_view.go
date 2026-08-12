@@ -104,14 +104,15 @@ func buildNFTablesView(view *FirewallView, c models.Collector) {
 	if len(tables) == 0 {
 		return
 	}
-	view.Kind = "nftables"
-	view.Structured = true
-	view.NFTables = tables
-	for _, t := range tables {
-		for _, ch := range t.Chains {
+	for i := range tables {
+		tables[i].Flow = nftFlowDiagram(tables[i])
+		for _, ch := range tables[i].Chains {
 			view.TotalRules += len(ch.Rules)
 		}
 	}
+	view.Kind = "nftables"
+	view.Structured = true
+	view.NFTables = tables
 }
 
 // parseUFWStatusVerbose parses `ufw status verbose` output (what

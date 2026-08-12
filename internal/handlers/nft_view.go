@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bufio"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -30,6 +31,12 @@ type NFTable struct {
 	IsOwn  bool
 	Chains []NFChain
 	Sets   []NFSet
+	// Flow is a Mermaid flowchart (source text, not rendered) tracing
+	// this table's base chains (nftables hooks) through their jump/
+	// goto chain to whichever sub-chains handle the traffic — the
+	// packet-flow picture a flat rule dump doesn't show directly.
+	// Empty when the table has no chains to draw.
+	Flow string
 }
 
 // NFChain is one `chain <name> { ... }` block within a table.
@@ -439,4 +446,160 @@ func nftVerdictClass(verdict string) string {
 	default:
 		return "secondary"
 	}
+}
+
+var nftNodeIDRe = regexp.MustCompile(`[^A-Za-z0-9_]`)
+
+// nftNodeID turns a chain name into a Mermaid-safe node identifier.
+// The human-readable name still appears in the node's label — this is
+// only the internal graph key, so it never needs to round-trip back to
+// a real chain name.
+func nftNodeID(name string) string {
+	id := nftNodeIDRe.ReplaceAllString(name, "_")
+	if id == "" || (id[0] >= '0' && id[0] <= '9') {
+		id = "n_" + id
+	}
+	return id
+}
+
+// nftJumpTarget reads a rule's chain-transfer verdict ("jump X" or
+// "goto X") and returns the target chain name, or "" for a terminal
+// verdict (accept/drop/reject/...) that doesn't hand off to another
+// chain.
+func nftJumpTarget(verdict string) (target, kind string) {
+	switch {
+	case strings.HasPrefix(verdict, "jump "):
+		return strings.TrimPrefix(verdict, "jump "), "jump"
+	case strings.HasPrefix(verdict, "goto "):
+		return strings.TrimPrefix(verdict, "goto "), "goto"
+	}
+	return "", ""
+}
+
+const nftFlowLabelMaxLen = 70
+
+// nftLabelNewlineReplacer flattens a label to a single line. Needed
+// even though nft chain names can't normally contain a newline —
+// Name ultimately comes from a monitored (and possibly compromised)
+// host's own self-reported output, and an embedded newline in a
+// generated Mermaid label would otherwise let a crafted name start a
+// second, attacker-controlled line of Mermaid syntax (e.g. its own
+// classDef or edge statement).
+var nftLabelNewlineReplacer = strings.NewReplacer("\n", " ", "\r", " ")
+
+// nftFlowNodeLabel summarizes one chain into a single-line flowchart
+// label: its name, its hook/policy if it's a base chain, and an
+// allow/block tally so the diagram carries some of the same
+// information the rule list does. Deliberately one line and free of
+// any markup — the label text ultimately comes from a monitored
+// host's own (self-reported, so untrusted) nft output, and Mermaid's
+// default (non-"loose") security level treats it as plain text, never
+// HTML, so there's nothing here for a compromised host to inject into
+// an operator's browser session.
+func nftFlowNodeLabel(ch NFChain) string {
+	parts := []string{ch.Name}
+	if ch.HeaderShort != "" {
+		parts = append(parts, ch.HeaderShort)
+	}
+	if n := len(ch.Rules); n > 0 {
+		var allow, block int
+		for _, r := range ch.Rules {
+			switch r.VerdictClass {
+			case "success":
+				allow++
+			case "danger":
+				block++
+			}
+		}
+		tally := pluralize(n, "rule")
+		if allow > 0 || block > 0 {
+			tally += fmt.Sprintf(" (%d ok, %d block)", allow, block)
+		}
+		parts = append(parts, tally)
+	}
+	label := nftLabelNewlineReplacer.Replace(strings.Join(parts, " · "))
+	if r := []rune(label); len(r) > nftFlowLabelMaxLen {
+		label = string(r[:nftFlowLabelMaxLen-1]) + "…"
+	}
+	return label
+}
+
+func pluralize(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return fmt.Sprintf("%d %ss", n, noun)
+}
+
+// nftFlowDiagram renders a Mermaid flowchart of how packets move
+// through a table's chains: base chains (nftables hooks — INPUT,
+// OUTPUT, PREROUTING, ...) at the entry points, jump/goto edges to
+// whichever sub-chains actually run. A flat rule dump shows every
+// chain in isolation; this is the connective picture. Only chains
+// reachable from a base chain (or that are a base chain themselves)
+// are drawn — helper chains nft declares but nothing currently jumps
+// to would otherwise clutter it without adding information. Returns
+// "" when the table has no chains, or none of them connect to a base
+// chain (nothing meaningful to draw).
+func nftFlowDiagram(tbl NFTable) string {
+	if len(tbl.Chains) == 0 {
+		return ""
+	}
+	byName := make(map[string]bool, len(tbl.Chains))
+	for _, ch := range tbl.Chains {
+		byName[ch.Name] = true
+	}
+
+	type edge struct{ from, to, kind string }
+	var edges []edge
+	for _, ch := range tbl.Chains {
+		for _, r := range ch.Rules {
+			target, kind := nftJumpTarget(r.Verdict)
+			if target == "" || !byName[target] {
+				continue
+			}
+			edges = append(edges, edge{ch.Name, target, kind})
+		}
+	}
+
+	used := make(map[string]bool, len(tbl.Chains))
+	for _, ch := range tbl.Chains {
+		if ch.Header != "" {
+			used[ch.Name] = true
+		}
+	}
+	for _, e := range edges {
+		used[e.from] = true
+		used[e.to] = true
+	}
+	if len(used) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("flowchart LR\n")
+	for _, ch := range tbl.Chains {
+		if !used[ch.Name] {
+			continue
+		}
+		fmt.Fprintf(&b, "  %s[%s]\n", nftNodeID(ch.Name), strconv.Quote(nftFlowNodeLabel(ch)))
+		if ch.Header != "" {
+			fmt.Fprintf(&b, "  class %s nftBaseChain\n", nftNodeID(ch.Name))
+		}
+	}
+	seenEdge := make(map[string]bool, len(edges))
+	for _, e := range edges {
+		key := e.from + ">" + e.to
+		if seenEdge[key] {
+			continue
+		}
+		seenEdge[key] = true
+		arrow := "-->"
+		if e.kind == "goto" {
+			arrow = "-.->"
+		}
+		fmt.Fprintf(&b, "  %s %s %s\n", nftNodeID(e.from), arrow, nftNodeID(e.to))
+	}
+	b.WriteString("  classDef nftBaseChain fill:#2f7fe0,color:#fff,stroke:#2f7fe0,font-weight:bold;\n")
+	return b.String()
 }

@@ -802,6 +802,14 @@ details > summary::-webkit-details-marker { color: var(--bh-text-faint); }
 .nft-rule-info     .nft-rule-verdict { color: var(--bh-info); }
 .nft-rule-light    { border-left-color: var(--bh-border-hair); }
 
+.nft-flow-canvas {
+  overflow-x: auto;
+  padding: 10px;
+  background: var(--bh-bg);
+  border: 1px solid var(--bh-border-hair);
+}
+.nft-flow-canvas .mermaid { min-width: min-content; }
+
 /* ---- responsive ---------------------------------------------------------- */
 
 @media (max-width: 991px) {

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -339,5 +340,187 @@ func TestBuildFirewallView_NFTables_Structured(t *testing.T) {
 	}
 	if view.TotalRules == 0 {
 		t.Error("expected TotalRules to be nonzero")
+	}
+}
+
+func TestNFTFlowDiagram_TracesReachableJumpChain(t *testing.T) {
+	tables := parseNFTRuleset(sampleNFTRuleset)
+	ipFilter := tables[0]
+	flow := nftFlowDiagram(ipFilter)
+	if flow == "" {
+		t.Fatal("expected a non-empty flow diagram for ip filter")
+	}
+	if !strings.HasPrefix(flow, "flowchart LR\n") {
+		t.Errorf("flow = %q, want it to start with a Mermaid flowchart header", flow)
+	}
+
+	// INPUT -> ufw-before-input -> ufw-user-input is the only path
+	// that's actually reachable within this table's declared chains
+	// (INPUT also jumps to "ts-input" and ufw-before-input jumps to
+	// "ufw-logging-deny", neither of which this trimmed fixture
+	// declares — those edges must be silently dropped, not crash or
+	// reference an undefined node).
+	for _, id := range []string{nftNodeID("INPUT"), nftNodeID("ufw-before-input"), nftNodeID("ufw-user-input")} {
+		if !strings.Contains(flow, id) {
+			t.Errorf("expected node id %q in flow, got:\n%s", id, flow)
+		}
+	}
+	for _, name := range []string{"ts-input", "ufw-logging-deny"} {
+		if strings.Contains(flow, nftNodeID(name)) {
+			t.Errorf("expected no reference to undeclared chain %q, got:\n%s", name, flow)
+		}
+	}
+
+	// Chains that are neither a base chain nor reachable via any edge
+	// (ufw-before-logging-input has 0 rules and nothing jumps to it in
+	// this fixture; ufw-skip-to-policy-input is never jumped to
+	// either) must be excluded as clutter.
+	for _, name := range []string{"ufw-before-logging-input", "ufw-skip-to-policy-input"} {
+		if strings.Contains(flow, nftNodeID(name)) {
+			t.Errorf("expected unreferenced chain %q to be excluded, got:\n%s", name, flow)
+		}
+	}
+}
+
+func TestNFTFlowDiagram_BaseChainGetsClassed(t *testing.T) {
+	tables := parseNFTRuleset(sampleNFTRuleset)
+	flow := nftFlowDiagram(tables[0])
+	if !strings.Contains(flow, "class "+nftNodeID("INPUT")+" nftBaseChain") {
+		t.Errorf("expected INPUT to be classed as a base chain, got:\n%s", flow)
+	}
+	if strings.Contains(flow, "class "+nftNodeID("ufw-user-input")+" nftBaseChain") {
+		t.Error("expected ufw-user-input (not a base chain) to not get the base-chain class")
+	}
+}
+
+func TestNFTFlowDiagram_SingleBaseChainNoJumps(t *testing.T) {
+	tables := parseNFTRuleset(sampleNFTRuleset)
+	var f2b *NFTable
+	for i := range tables {
+		if tables[i].Name == "f2b-table" {
+			f2b = &tables[i]
+		}
+	}
+	if f2b == nil {
+		t.Fatal("expected f2b-table")
+	}
+	flow := nftFlowDiagram(*f2b)
+	if flow == "" {
+		t.Fatal("expected a diagram even with a single, jump-free base chain")
+	}
+	if !strings.Contains(flow, nftNodeID("f2b-chain")) {
+		t.Errorf("expected the f2b-chain node, got:\n%s", flow)
+	}
+	if strings.Contains(flow, "-->") {
+		t.Errorf("expected no edges (nothing jumps anywhere), got:\n%s", flow)
+	}
+}
+
+func TestNFTFlowDiagram_EmptyWhenNoChains(t *testing.T) {
+	tables := parseNFTRuleset(sampleNFTRuleset)
+	var own *NFTable
+	for i := range tables {
+		if tables[i].IsOwn {
+			own = &tables[i]
+		}
+	}
+	if own == nil {
+		t.Fatal("expected the breachharbor table")
+	}
+	if got := nftFlowDiagram(*own); got != "" {
+		t.Errorf("expected no diagram for a table with 0 chains, got %q", got)
+	}
+}
+
+func TestNFTJumpTarget(t *testing.T) {
+	cases := []struct {
+		verdict, wantTarget, wantKind string
+	}{
+		{"jump ufw-user-input", "ufw-user-input", "jump"},
+		{"goto ufw-user-input", "ufw-user-input", "goto"},
+		{"accept", "", ""},
+		{"drop", "", ""},
+		{"", "", ""},
+	}
+	for _, c := range cases {
+		target, kind := nftJumpTarget(c.verdict)
+		if target != c.wantTarget || kind != c.wantKind {
+			t.Errorf("nftJumpTarget(%q) = (%q, %q), want (%q, %q)", c.verdict, target, kind, c.wantTarget, c.wantKind)
+		}
+	}
+}
+
+func TestNFTNodeID(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"ufw-user-input", "ufw_user_input"},
+		{"INPUT", "INPUT"},
+		{"f2b-chain", "f2b_chain"},
+	}
+	for _, c := range cases {
+		if got := nftNodeID(c.in); got != c.want {
+			t.Errorf("nftNodeID(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+// TestNFTFlowNodeLabel_SingleLine guards half of why the flow diagram
+// is safe to render even though chain names ultimately come from a
+// monitored (and possibly compromised) host's own self-reported nft
+// output: labels are always single-line — an embedded newline could
+// otherwise let a crafted chain name inject an extra Mermaid
+// statement (a rogue edge, a classDef) onto its own line.
+func TestNFTFlowNodeLabel_SingleLine(t *testing.T) {
+	ch := NFChain{
+		Name:        "evil\nclassDef x fill:red",
+		HeaderShort: "hook input, policy drop",
+		Rules:       []NFRule{{VerdictClass: "success"}, {VerdictClass: "danger"}},
+	}
+	label := nftFlowNodeLabel(ch)
+	if strings.ContainsAny(label, "\n\r") {
+		t.Errorf("label must be single-line, got %q", label)
+	}
+}
+
+// TestNFTFlowDiagram_QuoteEscaping guards the other half: a chain name
+// containing a double quote or Mermaid syntax must not be able to
+// close the label's quoted string early and inject raw Mermaid
+// statements. nftFlowDiagram runs every label through strconv.Quote,
+// so this asserts that exact escaped form is what actually lands in
+// the diagram text — proving the escaping is applied, not just
+// assumed.
+func TestNFTFlowDiagram_QuoteEscaping(t *testing.T) {
+	evilName := `evil" ]; classDef x fill:red //`
+	tbl := NFTable{
+		Name: "t",
+		Chains: []NFChain{
+			{Name: evilName, Header: "type filter hook input priority filter; policy drop;"},
+		},
+	}
+	flow := nftFlowDiagram(tbl)
+	if flow == "" {
+		t.Fatal("expected a non-empty diagram for a single base chain")
+	}
+	wantEscaped := strconv.Quote(nftFlowNodeLabel(tbl.Chains[0]))
+	if !strings.Contains(flow, wantEscaped) {
+		t.Errorf("expected the properly escaped label %s in output, got:\n%s", wantEscaped, flow)
+	}
+	// The raw, unescaped name must never appear on its own — only
+	// inside the escaped/quoted form checked above.
+	if strings.Contains(flow, evilName) {
+		t.Errorf("raw unescaped chain name leaked into diagram output:\n%s", flow)
+	}
+}
+
+func TestNFTFlowNodeLabel_TruncatesLongNames(t *testing.T) {
+	ch := NFChain{Name: strings.Repeat("x", 200)}
+	label := nftFlowNodeLabel(ch)
+	// Bounded by rune (display) count, not byte length — the ellipsis
+	// itself is a 3-byte UTF-8 rune, so a byte-length check would
+	// under-count how much of the label it can actually keep.
+	if n := len([]rune(label)); n > nftFlowLabelMaxLen {
+		t.Errorf("label rune length = %d, want <= %d", n, nftFlowLabelMaxLen)
+	}
+	if !strings.HasSuffix(label, "…") {
+		t.Errorf("expected a truncated label to end with an ellipsis, got %q", label)
 	}
 }
