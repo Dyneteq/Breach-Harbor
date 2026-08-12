@@ -9,6 +9,8 @@
     ·
     <a href="https://breachharbor.com">Website</a>
   </p>
+
+  <pre><code>curl -fsSL https://breachharbor.com/install.sh | sh</code></pre>
 </div>
 
 ## What it is
@@ -27,7 +29,14 @@ required: the agent is a complete product on its own.
 
 ## Quick start
 
-Requires Go 1.24+.
+```bash
+curl -fsSL https://breachharbor.com/install.sh | sh
+breachharbor doctor
+```
+
+That downloads the right prebuilt binary for your OS/arch (linux/amd64, linux/arm64,
+darwin/arm64, openbsd/amd64), verifies its checksum, and installs it to `/usr/local/bin`.
+No release built for your platform yet? Build from source instead (requires Go 1.24+):
 
 ```bash
 git clone https://github.com/Dyneteq/Breach-Harbor.git
@@ -39,8 +48,8 @@ make build
 `doctor` tells you what's ready to go and what isn't; it never needs root.
 
 ```bash
-./bin/breachharbor agent flush          # always safe: reports what would be removed
-sudo ./bin/breachharbor agent flush --yes    # actually removes it
+breachharbor agent flush          # always safe: reports what would be removed
+sudo breachharbor agent flush --yes    # actually removes it
 ```
 
 ## Status
