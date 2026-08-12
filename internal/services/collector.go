@@ -193,6 +193,25 @@ func (s *CollectorService) CreateIncidentsBatch(collectorToken string, observati
 	if err != nil {
 		return nil, errors.New("invalid collector token")
 	}
+	return s.createIncidentsBatch(collector, observations)
+}
+
+// CreateIncidentsBatchForCollector is CreateIncidentsBatch's
+// token-less counterpart: the caller already knows collectorID is
+// authentic because it created the collector itself, in this same
+// process, so there is no bearer token to validate. Used only by
+// internal/server's in-process local agent (internal/server/
+// localagent.go), which has no HTTP hop — and so no token — between
+// the agent's own observation queue and this call.
+func (s *CollectorService) CreateIncidentsBatchForCollector(collectorID uint, observations []ObservationInput) ([]models.Incident, error) {
+	var collector models.Collector
+	if err := s.db.First(&collector, collectorID).Error; err != nil {
+		return nil, err
+	}
+	return s.createIncidentsBatch(&collector, observations)
+}
+
+func (s *CollectorService) createIncidentsBatch(collector *models.Collector, observations []ObservationInput) ([]models.Incident, error) {
 	if len(observations) == 0 {
 		return nil, nil
 	}

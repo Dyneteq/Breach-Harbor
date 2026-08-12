@@ -25,6 +25,11 @@ func newTestServer(t *testing.T) *Server {
 	cfg.DBPath = filepath.Join(dir, "breach_harbor.db")
 	cfg.Web = false
 	cfg.PublishInterval = time.Hour // never fires on its own during a test
+	// The default is off (ErrLocalAgentDisabled) — most tests using this
+	// helper want the "operator opted in" state so they can exercise
+	// LocalAgentManager; TestLocalAgentManager_DisabledByDefault builds
+	// its own Server with this left false to cover the opposite case.
+	cfg.LocalAgentEnabled = true
 
 	appCfg := &config.Config{
 		JWT:     config.JWTConfig{Secret: "test-secret", ExpiryMinutes: 60},

@@ -111,6 +111,11 @@ func (s *Server) registerWebRoutes(r *gin.Engine) {
 		{
 			webAuthed.POST("/collectors", webHandler.HandleCreateCollector)
 			webAuthed.DELETE("/collectors/:name", webHandler.HandleDeleteCollector)
+
+			webAuthed.GET("/local-agent", s.handleLocalAgentStatus)
+			webAuthed.POST("/local-agent/start", s.handleLocalAgentStart)
+			webAuthed.POST("/local-agent/stop", s.handleLocalAgentStop)
+			webAuthed.POST("/local-agent/enforce", s.handleLocalAgentEnforce)
 		}
 	}
 
@@ -118,7 +123,9 @@ func (s *Server) registerWebRoutes(r *gin.Engine) {
 	pages.Use(middleware.WebAuthMiddleware(s.authService))
 	{
 		pages.GET("/dashboard", webHandler.DashboardPage)
+		pages.GET("/profile", webHandler.ProfilePage)
 		pages.GET("/collectors", webHandler.CollectorsPage)
+		pages.GET("/collectors/:name/incidents", webHandler.CollectorIncidentsPage)
 		pages.GET("/incidents", webHandler.IncidentsPage)
 		pages.GET("/incidents/:id", webHandler.IncidentDetailsPage)
 		pages.GET("/ip-addresses", webHandler.IPAddressesPage)

@@ -39,6 +39,13 @@ type Config struct {
 	Web             bool
 	JSON            bool
 	SignKeyPath     string
+	// LocalAgentEnabled gates the dashboard's "start a local agent
+	// against this host" feature (internal/server/localagent.go).
+	// Defaults off: any self-registered user could otherwise flip it
+	// into enforcing and mutate this host's own firewall — it must be
+	// an explicit operator opt-in (`server run --local-agent`), not a
+	// default-on surface reachable by anyone who can register.
+	LocalAgentEnabled bool
 	// TemplatesDir/StaticDir default to "templates"/"static", resolved
 	// relative to the process's working directory — matches the
 	// Dockerfile, which COPYs both next to the binary. Overridable so
@@ -107,6 +114,8 @@ type Server struct {
 	publisher *blocklist.Publisher
 	torFeed   *feed.CachedProvider
 
+	localAgent *LocalAgentManager
+
 	router *gin.Engine
 }
 
@@ -159,6 +168,7 @@ func New(cfg Config, appCfg *config.Config) (*Server, error) {
 		torFeed:          feed.NewCachedProvider(feed.NewTor(), cfg.DataDir, 15*time.Minute),
 	}
 	s.publisher = blocklist.NewPublisher(s.signer, s.blocklistSource, cfg.PublishInterval, cfg.BlocklistTTL)
+	s.localAgent = NewLocalAgentManager(cfg.DataDir, s.collectorService, cfg.LocalAgentEnabled)
 	s.router = s.buildRouter()
 	return s, nil
 }
@@ -201,7 +211,12 @@ func (s *Server) Run(ctx context.Context) error {
 }
 
 // Close releases resources New acquired without starting Run (used by
-// tests and by `server status`, which only needs a DB handle).
+// tests and by `server status`, which only needs a DB handle). Any
+// local agent started from the web dashboard is stopped first, so its
+// store's lock file is always released cleanly on shutdown.
 func (s *Server) Close() error {
+	if s.localAgent != nil {
+		_ = s.localAgent.StopIfRunning()
+	}
 	return s.locationService.Close()
 }

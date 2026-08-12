@@ -66,6 +66,7 @@ func runServerRun(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	publishInterval := fs.Duration("publish-interval", 15*time.Minute, "how often to re-sign and republish the blocklist")
 	signKey := fs.String("sign-key", "", "ed25519 signing key path (default: <data-dir>/signing.key)")
 	web := fs.Bool("web", true, "serve the HTML dashboard in addition to the API")
+	localAgentFlag := fs.Bool("local-agent", false, "let logged-in dashboard users start a local agent.Agent against this host from the web UI (off by default: it can mutate this host's own firewall once enforcing is turned on)")
 	jsonOut := fs.Bool("json", false, "structured JSON log lines instead of the human banner")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -87,6 +88,7 @@ func runServerRun(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	cfg.DataDir = *dataDir
 	cfg.PublishInterval = *publishInterval
 	cfg.Web = *web
+	cfg.LocalAgentEnabled = *localAgentFlag
 	cfg.JSON = *jsonOut
 	cfg.SignKeyPath = *signKey
 	cfg.DBPath = *dbPath
@@ -124,6 +126,11 @@ func printServerRunBanner(stdout io.Writer, cfg server.Config) {
 		webState = "disabled (API only)"
 	}
 	fmt.Fprintf(stdout, "dashboard:           %s\n", webState)
+	localAgentState := "disabled (enable with --local-agent)"
+	if cfg.LocalAgentEnabled {
+		localAgentState = "enabled — logged-in users can start a local agent against this host"
+	}
+	fmt.Fprintf(stdout, "local agent (web):   %s\n", localAgentState)
 	fmt.Fprintf(stdout, "blocklist publish:   every %s\n", formatDuration(cfg.PublishInterval))
 	fmt.Fprintln(stdout)
 }

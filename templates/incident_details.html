@@ -1,5 +1,75 @@
-{{define "content"}}
-<div class="container-fluid">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .title}}{{.title}}{{else}}BREACH::HARBOR{{end}}</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Barlow+Condensed:wght@400;500;600&family=Barlow:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/main.css" rel="stylesheet">
+
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="/dashboard">
+                <i class="fas fa-shield-alt me-2"></i>BREACH::HARBOR
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard">
+                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/collectors">
+                            <i class="fas fa-satellite-dish me-1"></i>Collectors
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/incidents">
+                            <i class="fas fa-exclamation-triangle me-1"></i>Incidents
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/ip-addresses">
+                            <i class="fas fa-network-wired me-1"></i>IP Addresses
+                        </a>
+                    </li>
+                </ul>
+
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user me-1"></i>Account
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/profile">Profile</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="logout()">Logout</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container-fluid py-4">
+        <div class="container-fluid">
     <div class="row mb-4">
         <div class="col">
             <nav aria-label="breadcrumb">
@@ -9,7 +79,7 @@
                     <li class="breadcrumb-item active">Incident #{{.incident.ID}}</li>
                 </ol>
             </nav>
-            
+
             <h1 class="h3 fw-bold">
                 <i class="fas fa-exclamation-triangle me-2 text-danger"></i>
                 Incident Details
@@ -19,8 +89,8 @@
 
     <div class="row">
         <div class="col-lg-8">
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white">
+            <div class="card mb-4">
+                <div class="card-header">
                     <h5 class="mb-0">
                         <i class="fas fa-info-circle me-2"></i>Incident Information
                     </h5>
@@ -31,19 +101,19 @@
                             <label class="form-label text-muted">Incident ID</label>
                             <div class="fw-bold">#{{.incident.ID}}</div>
                         </div>
-                        
+
                         <div class="col-md-6 mb-3">
                             <label class="form-label text-muted">Type</label>
                             <div>
                                 <span class="badge bg-danger">{{.incident.IncidentType}}</span>
                             </div>
                         </div>
-                        
+
                         <div class="col-md-6 mb-3">
                             <label class="form-label text-muted">Date & Time</label>
                             <div class="fw-bold">{{.incident.CreatedAt.Format "January 2, 2006 at 15:04:05"}}</div>
                         </div>
-                        
+
                         <div class="col-md-6 mb-3">
                             <label class="form-label text-muted">Collector</label>
                             <div>
@@ -56,14 +126,14 @@
 
             <!-- Metadata Section -->
             {{if .incident.Metadata}}
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white">
+            <div class="card mb-4">
+                <div class="card-header">
                     <h5 class="mb-0">
                         <i class="fas fa-code me-2"></i>Event Metadata
                     </h5>
                 </div>
                 <div class="card-body">
-                    <pre class="bg-light p-3 rounded"><code>{{range $key, $value := .incident.Metadata}}{{$key}}: {{$value}}
+                    <pre class="p-3"><code>{{range $key, $value := .incident.Metadata}}{{$key}}: {{$value}}
 {{end}}</code></pre>
                 </div>
             </div>
@@ -72,8 +142,8 @@
 
         <div class="col-lg-4">
             <!-- IP Address Information -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white">
+            <div class="card mb-4">
+                <div class="card-header">
                     <h5 class="mb-0">
                         <i class="fas fa-network-wired me-2"></i>Source IP
                     </h5>
@@ -82,15 +152,15 @@
                     <div class="mb-3">
                         <label class="form-label text-muted">IP Address</label>
                         <div>
-                            <code class="text-primary fs-5">{{.incident.IPAddress.IP}}</code>
+                            <code class="fs-5">{{.incident.IPAddress.IP}}</code>
                         </div>
                     </div>
-                    
+
                     {{if .incident.IPAddress.Location}}
                     <div class="mb-3">
                         <label class="form-label text-muted">Location</label>
                         <div class="d-flex align-items-center">
-                            <span class="flag-icon flag-icon-{{.incident.IPAddress.Location.CountryCode | lower}} me-2"></span>
+                            <span class="flag-icon me-2"></span>
                             <div>
                                 {{if .incident.IPAddress.Location.City}}
                                 <div>{{.incident.IPAddress.Location.City}}</div>
@@ -99,7 +169,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     {{if .incident.IPAddress.Location.ISP}}
                     <div class="mb-3">
                         <label class="form-label text-muted">ISP</label>
@@ -144,8 +214,8 @@
             </div>
 
             <!-- Actions -->
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white">
+            <div class="card">
+                <div class="card-header">
                     <h5 class="mb-0">
                         <i class="fas fa-tools me-2"></i>Actions
                     </h5>
@@ -155,11 +225,11 @@
                         <button class="btn btn-outline-primary" onclick="window.print()">
                             <i class="fas fa-print me-2"></i>Print Report
                         </button>
-                        
+
                         <button class="btn btn-outline-success" onclick="exportIncident()">
                             <i class="fas fa-download me-2"></i>Export JSON
                         </button>
-                        
+
                         <a href="/incidents" class="btn btn-outline-secondary">
                             <i class="fas fa-list me-2"></i>Back to Incidents
                         </a>
@@ -180,7 +250,7 @@ function exportIncident() {
         collector: "{{.incident.Collector.Name}}",
         metadata: {{.incident.Metadata}}
     };
-    
+
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(incident, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
@@ -189,5 +259,19 @@ function exportIncident() {
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
 }
+
+function logout() {
+    fetch('/api/web/logout', { method: 'POST' })
+        .then(() => window.location.href = '/login');
+}
 </script>
-{{end}}
+        </div>
+    </main>
+
+    <div id="alerts" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;">
+        <!-- Alerts will be inserted here by HTMX -->
+    </div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
