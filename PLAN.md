@@ -45,6 +45,19 @@ its M1 refinements are folded into the M1 section below).
     (a fresh Linux VM with sshd/nginx/fail2ban) was not run.
   - `agent run`'s `--config` flag is accepted but explicitly rejected ("not implemented") — no file
     config loader was built, flags only, as scoped.
+  - *Addendum, done later on `restructure/m2-server-is-useful`:* M1 checklist item 11 (`pf.go`,
+    the macOS/OpenBSD firewall backend) was a stretch item left undone when M1 was closed out
+    above. It's now implemented — see Key interfaces → macOS/OpenBSD backend (pf) and M1 step 11
+    for the full design/status, and "Explicitly out of scope" for the FreeBSD caveat. Same
+    unverified-on-real-hardware caveat as the systemd gap above, just for `pfctl` instead of
+    `systemctl`.
+  - *Second addendum, same session:* pf.go alone left macOS agents able to enforce (via feed
+    lists / an enrolled server's blocklist) but blind — none of the four M1 log sources are
+    macOS-native, so `agent sources` showed 0/4 on a Mac even with `pf` enforcing correctly. Added
+    `internal/logsource/unifiedlog.go` (`UnifiedLog`, watching macOS's unified log via `log
+    stream`) to close that gap — see Key interfaces → macOS source (unified log). Unlike the pf/
+    systemd gaps, this one *was* exercised live on real macOS during development (not just via a
+    fake runner), since a real Mac happened to be available.
 - ✅ **M2 — the server is useful.** Implemented on branch
   `restructure/m2-server-is-useful` (off `restructure/m1-agent-stands-alone`),
   commits `1e0a91f` through `7fbf933` — see that branch's log for the full
@@ -226,11 +239,12 @@ Marketing site untouched at repo root.
       server.go, http.go, ingest.go, enroll.go, publisher.go, systemd.go
 
     firewall/                      # [M0 done] pluggable backend
-      firewall.go (Backend interface), nft.go, ipset.go, pf.go (macOS, [M1 stretch]), detect.go,
-      exec.go (argv-array exec seam)
+      firewall.go (Backend interface), nft.go, ipset.go, pf.go (macOS/OpenBSD, [done]), detect.go,
+      exec.go (argv-array exec seam, incl. RunStdin for pf.go)
 
     logsource/                     # [M1] pluggable sources
-      logsource.go (Source interface), journal.go, authlog.go, nginx.go, fail2ban.go
+      logsource.go (Source interface), journal.go, authlog.go, nginx.go, fail2ban.go,
+      unifiedlog.go (macOS, [done])
 
     feed/                          # [M1 partial, M2 completes] pluggable free feeds
       feed.go (Provider interface), spamhaus.go, firehol.go, tor.go, abuseipdb.go, cache.go
@@ -415,24 +429,29 @@ breachharbor`. ipset: dedicated sets `bh-blocked4`/`bh-blocked6` + dedicated cha
 `BREACHHARBOR`/`BREACHHARBOR6` with one idempotent jump rule each. This package is done for
 Linux — M1/M2 consume it, no Linux-side changes expected.
 
-**macOS backend (pf)** — *[M1 stretch, does not gate the M1 demo]*: `internal/firewall/pf.go`
-implements `Backend` via `pfctl`; no interface changes needed, `Target`/`netip.Prefix` already
-carry no Linux-specific concepts. Design: anchor `breach-harbor` + one table `bh-blocked` (a pf
-table holds v4 and v6 together, so unlike nft/ipset there's no need to split them) + a `block in
-quick from <bh-blocked>` rule loaded into that anchor. `Available` stays non-mutating —
-`LookPath("pfctl")` plus a read-only liveness check (e.g. `pfctl -s info`), mirroring `nft list
-tables`/`ipset -v`. `Init` is idempotent: creates/loads the anchor+table if missing, and calls
-`pfctl -e` only if pf is currently disabled. `Flush` removes only the breach-harbor anchor/table —
-it must never call `pfctl -d`, since other things on macOS (Application Firewall, VPN clients) may
-depend on pf staying enabled. `Block`/`Unblock` are per-address (`pfctl -t bh-blocked -T
-add/delete <ip>`), closer in shape to `ipset.go` than `nft.go`'s batch style. `List` parses `pfctl
--t bh-blocked -T show` (one CIDR per line — simpler than either existing backend's output).
-`detect.go`'s `"auto"` path adds `PF` as a candidate only when `runtime.GOOS == "darwin"`;
-explicit `--firewall pf` forces it and errors if unavailable elsewhere. `doctor_cmd.go`'s
-`firewallChecks` gains a darwin-gated pf row. Requires root, same as nft/ipset. Anchor/table
-lifecycle needs verification against real macOS + root — CI's darwin/arm64 build matrix entry
-compiles it but doesn't run it privileged, so the fake-`runner` unit tests in `pf_test.go` can't
-substitute for a manual pass.
+**macOS/OpenBSD backend (pf)** — *[done]*: `internal/firewall/pf.go` implements `Backend` via
+`pfctl`; no interface changes needed, `Target`/`netip.Prefix` already carried no Linux-specific
+concepts. As built: anchor `breach-harbor` + one table `bh-blocked` (a pf table holds v4 and v6
+together, so unlike nft/ipset there's no need to split them) + a `block in quick from
+<bh-blocked>` rule loaded into that anchor via `pfctl -a breach-harbor -f -` with the ruleset on
+stdin (the `runner` seam in `internal/firewall/exec.go` gained a `RunStdin` method for this — the
+only backend that needs it). `Available` stays non-mutating — `LookPath("pfctl")` plus a
+read-only liveness check (`pfctl -s info`), mirroring `nft list tables`/`ipset -v`. `Init` is
+idempotent: loads the anchor+table only if not already loaded, and calls `pfctl -e` only if pf is
+currently disabled (never touches an already-enabled pf). `Flush` removes only the breach-harbor
+anchor's rules (`pfctl -a breach-harbor -F rules`) and table (`pfctl -a breach-harbor -t
+bh-blocked -T kill`) — it never calls `pfctl -d`, since other things on the host (macOS
+Application Firewall, VPN clients, the user's own pf.conf) may depend on pf staying enabled.
+`Block`/`Unblock` are per-address (`pfctl -a breach-harbor -t bh-blocked -T add/delete <ip>`),
+closer in shape to `ipset.go` than `nft.go`'s batch style. `List` parses `pfctl -a breach-harbor -t
+bh-blocked -T show` (one address per line). `detect.go`'s `"auto"` path adds `PF` as a candidate
+only when `runtime.GOOS` is `darwin` or `openbsd`; explicit `--firewall pf` forces it and is tried
+on any OS (FreeBSD included, untested — see "Explicitly out of scope"). `doctor_cmd.go`'s
+`firewallChecks` gains a pf row gated the same way. Requires root, same as nft/ipset. Unit-tested
+via the fake-`runner` pattern in `pf_test.go` (idempotent Init, stdin ruleset content, argv shape
+for Block/Unblock/Flush, "never calls `pfctl -d`" regression guard); anchor/table lifecycle still
+needs a manual verification pass on real macOS/OpenBSD hardware with root — no such host was
+available in the environment that built this, same caveat M1/M2's systemd units carry for Linux.
 
 ```go
 // internal/logsource/logsource.go — [M1]
@@ -463,6 +482,23 @@ setups) → `nginx.go` (combined-log-format burst detection against sensitive pa
 `/wp-login.php`, `/.env`, `/xmlrpc.php`). Every `Probe` reports `Available: false` with a human
 `Detail` for "not present," never an error — errors are reserved for genuinely unexpected failures
 (e.g. a permissions error on a file that does exist).
+
+**macOS source (unified log)** — *[done, added alongside the pf backend above]*:
+`internal/logsource/unifiedlog.go`'s `UnifiedLog` is the macOS analog of `journal.go` — OpenSSH on
+macOS writes the same `Failed password for ... from <ip> port <n> ssh2` message text as Linux, just
+carried by the unified logging system instead of syslog/journald, so it reuses `journal.go`'s
+`journalFailedPasswordRe` rather than redefining its own. `Watch` runs `log stream --style ndjson
+--predicate 'process == "sshd"'` and parses each line's `eventMessage`/`timestamp`/`process` JSON
+fields (the stream's leading human-readable "Filtering the log data using..." line is silently
+rejected by the same not-valid-JSON path that would reject any other non-matching line — no special
+case needed). `Probe` gates on `runtime.GOOS == "darwin"` first, then `LookPath("log")` (which is
+always present on macOS — `log` is a core `/usr/bin` binary, can't be uninstalled — so this
+Probe is really just the OS gate in practice). Registered unconditionally in `All()`, same as every
+other source; Probe's own gating is what keeps it correctly unavailable on Linux/BSD hosts. Unlike
+`pf.go`, this one was fully exercised for real on this darwin dev box during development —
+`doctor`/`agent sources` both correctly flip it to available, and `TestUnifiedLog_Probe_
+AvailableOnDarwinWithLogBinary` exercises the true-availability branch live rather than only via a
+fake runner.
 
 ```go
 // internal/feed/feed.go — [M1: spamhaus/firehol/tor/abuseipdb + cache; M2: asn.go]
@@ -620,12 +656,17 @@ file-backed state that survives restarts.
     `httptest` including the cache-fallback-on-failure path, filestore round-trip + bounded-queue
     drop + lock contention, CLI dispatch tests extended to the newly-real subcommands (same
     fake-stdout/stderr pattern as `internal/cli/cli_test.go`).
-11. *(Stretch, optional — does not gate the M1 demo, which stays Linux-VM-based)*
-    `internal/firewall/pf.go`: macOS backend via `pfctl` (see Key interfaces → macOS backend (pf)
-    for the full design). Wire into `detect.go` (darwin-only auto-candidate, explicit `pf` name)
-    and `doctor_cmd.go` (darwin-gated check row). Test via the existing fake-`runner` pattern in a
-    new `pf_test.go`; anchor/table lifecycle still needs a manual verification pass on real macOS
-    with root, since CI builds darwin/arm64 but doesn't run it privileged.
+11. ✅ *(Was stretch/optional — didn't gate the M1 demo, which stayed Linux-VM-based)*
+    `internal/firewall/pf.go`: macOS/OpenBSD backend via `pfctl` (see Key interfaces →
+    macOS/OpenBSD backend (pf) for the full design). Wired into `detect.go` (darwin/openbsd
+    auto-candidate, explicit `pf` name usable on any OS) and `doctor_cmd.go` (same OS-gated check
+    row). Tested via the existing fake-`runner` pattern in `pf_test.go`, plus a `RunStdin` addition
+    to the shared `runner` seam in `exec.go`/`firewall_test.go`'s `fakeRunner` (only pf.go needs
+    stdin, to load the anchor ruleset via `pfctl -a breach-harbor -f -`). CI's build matrix gained
+    an `openbsd/amd64` entry alongside the existing `darwin/arm64` one; both, plus `darwin/amd64`
+    and `openbsd/arm64`, were cross-compiled and confirmed to build clean locally. Anchor/table
+    lifecycle still needs a manual verification pass on real macOS/OpenBSD hardware with root — no
+    such host was available in the environment that built this, and CI doesn't run privileged.
 
 **Demo**: fresh Linux VM/container with sshd, nginx, fail2ban installed. `sudo breachharbor agent
 install` (dry run active) → simulate an SSH brute force → within a minute `agent status`/`agent
@@ -694,9 +735,10 @@ cache-first.
 
 - Any ML/AI-based detection or docs referencing it — the README's ML roadmap was deleted in M0,
   not deprioritized.
-- ~~macOS/BSD firewall backends~~ — macOS (`pf`) is now planned as an M1 stretch item, see Key
-  interfaces → macOS backend (pf) and M1 step 11; it doesn't gate the M1 demo. Non-macOS BSD
-  variants (FreeBSD/OpenBSD `pf` differences) remain out of scope.
+- ~~macOS/BSD firewall backends~~ — macOS and OpenBSD (`pf`) are implemented, see Key interfaces →
+  macOS/OpenBSD backend (pf). FreeBSD is untested (not currently gated into the `"auto"` candidate
+  list, but `--firewall pf` will attempt it since pf's `pfctl` verbs are close enough that it may
+  just work — no FreeBSD host was available to verify).
 - Windows support.
 - Multi-server federation beyond the M4 sketch.
 - A centrally-run, project-hosted default public blocklist service.

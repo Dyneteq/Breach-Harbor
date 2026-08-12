@@ -42,7 +42,7 @@ func runAgentRun(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	feedFlag := fs.String("feed", "", "comma-separated provider=on|off overrides, e.g. spamhaus=off")
 	abuseIPDBKey := fs.String("abuseipdb-key", "", "AbuseIPDB API key (enables the abuseipdb feed)")
 	refresh := fs.Duration("refresh", 15*time.Minute, "how often to re-check feeds")
-	firewallName := fs.String("firewall", "auto", "firewall backend: nft, ipset, or auto")
+	firewallName := fs.String("firewall", "auto", "firewall backend: nft, ipset, pf, or auto")
 	jsonOut := fs.Bool("json", false, "structured JSON log lines instead of the human banner")
 	if err := fs.Parse(args); err != nil {
 		return 2

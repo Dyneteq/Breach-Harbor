@@ -119,6 +119,13 @@ func TestSystemd_Uninstall_NoopWhenNeverInstalled(t *testing.T) {
 	if err := s.Uninstall(context.Background()); err != nil {
 		t.Errorf("expected uninstalling a never-installed unit to be a safe no-op, got: %v", err)
 	}
+	// Must not shell out to systemctl at all in this case — daemon-
+	// reload/disable need root (or polkit) on a real system, and a
+	// caller with neither (e.g. CI) must still get a clean no-op
+	// rather than a permission error for a unit that was never there.
+	if len(fr.calls) != 0 {
+		t.Errorf("expected zero systemctl calls when nothing was ever installed, got %+v", fr.calls)
+	}
 }
 
 func TestNewSystemd_DefaultsToRealUnitDir(t *testing.T) {

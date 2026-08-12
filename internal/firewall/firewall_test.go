@@ -10,15 +10,18 @@ import (
 
 // call records one invocation made through the runner seam.
 type call struct {
-	name string
-	args []string
+	name  string
+	args  []string
+	stdin string
 }
 
 // fakeRunner is a scriptable runner used to assert the exact argv a
-// backend issues, without touching a real nft/iptables/ipset binary.
+// backend issues, without touching a real nft/iptables/ipset/pfctl
+// binary.
 type fakeRunner struct {
 	lookPath func(name string) (string, error)
 	run      func(ctx context.Context, name string, args ...string) ([]byte, error)
+	runStdin func(ctx context.Context, stdin string, name string, args ...string) ([]byte, error)
 	calls    []call
 }
 
@@ -33,6 +36,14 @@ func (f *fakeRunner) Run(ctx context.Context, name string, args ...string) ([]by
 	f.calls = append(f.calls, call{name: name, args: append([]string(nil), args...)})
 	if f.run != nil {
 		return f.run(ctx, name, args...)
+	}
+	return nil, nil
+}
+
+func (f *fakeRunner) RunStdin(ctx context.Context, stdin string, name string, args ...string) ([]byte, error) {
+	f.calls = append(f.calls, call{name: name, args: append([]string(nil), args...), stdin: stdin})
+	if f.runStdin != nil {
+		return f.runStdin(ctx, stdin, name, args...)
 	}
 	return nil, nil
 }

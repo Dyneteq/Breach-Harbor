@@ -162,8 +162,20 @@ func (s *Systemd) Install(ctx context.Context, opts InstallOptions) error {
 // package's. Calling Uninstall when nothing was ever installed is a
 // safe no-op, not an error.
 func (s *Systemd) Uninstall(ctx context.Context) error {
-	// Tolerate "unit not loaded"/"not found" — an already-removed or
-	// never-installed unit must not turn uninstall into a failure.
+	// Nothing was ever installed (or it's already gone): return
+	// early without touching systemctl at all. This matters beyond
+	// tidiness — systemctl disable/daemon-reload need root (or a
+	// polkit rule granting it) on a real system, and a caller with
+	// neither must still be able to safely call Uninstall when there
+	// is genuinely nothing to remove (e.g. CI, or a fresh checkout).
+	if _, err := os.Stat(s.unitPath()); os.IsNotExist(err) {
+		return nil
+	}
+
+	// Tolerate "unit not loaded"/"not found" here — a unit file that
+	// exists on disk but was never actually loaded by systemd (e.g.
+	// install failed partway through) must not turn uninstall into a
+	// failure either.
 	_, _ = s.run.Run(ctx, "systemctl", "disable", "--now", UnitName)
 
 	if err := os.Remove(s.unitPath()); err != nil && !os.IsNotExist(err) {
