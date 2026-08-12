@@ -705,6 +705,16 @@ details > summary::-webkit-details-marker { color: var(--bh-text-faint); }
 
 .nft-table-own { border-left: 3px solid var(--bh-danger) !important; }
 
+.nft-table-header {
+  padding: 0.5rem 0.75rem;
+  font-size: 12.5px;
+}
+.nft-table-header .badge { font-size: 9px; padding: 0.2em 0.5em; }
+.nft-table-meta {
+  font-size: 11px;
+  color: var(--bh-text-faint);
+}
+
 .nft-sets { margin-bottom: 10px; }
 .nft-set { margin-bottom: 4px; font-size: 12px; }
 .nft-set-elements {
@@ -753,12 +763,21 @@ details > summary::-webkit-details-marker { color: var(--bh-text-faint); }
 }
 .nft-rule:hover { background: var(--bh-accent-dim); }
 .nft-rule-match {
-  flex: 1 1 auto;
+  flex: 1 1 40%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--bh-text-dim);
+}
+.nft-rule-explain {
+  flex: 1 1 35%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: italic;
+  color: var(--bh-text-faint);
 }
 .nft-rule-verdict {
   flex: 0 0 auto;

@@ -286,6 +286,39 @@ func TestParseNFTRuleset_SetsParsedIncludingWrappedElements(t *testing.T) {
 	}
 }
 
+func TestExplainNFTRule(t *testing.T) {
+	cases := []struct {
+		match, verdict string
+		want           string
+	}{
+		{`iifname "lo"`, "accept", "Loopback (localhost) traffic"},
+		{"ct state related,established", "accept", "Return traffic for connections already allowed out"},
+		{"ct state invalid", "drop", "Malformed or untracked packet"},
+		{"ip protocol icmp icmp type echo-request", "accept", "Ping (ICMP echo)"},
+		{"ip protocol icmp icmp type destination-unreachable", "accept", "ICMP diagnostic message"},
+		{"meta l4proto ipv6-icmp icmpv6 type nd-router-solicit ip6 hoplimit 255", "accept", "IPv6 neighbor discovery"},
+		{"fib daddr type local", "return", "Destined for this host"},
+		{"fib daddr type broadcast", "return", "Broadcast destination"},
+		{"tcp dport 22", "accept", "Port 22 (SSH)"},
+		{"udp dport 41641", "accept", "Port 41641 (Tailscale)"},
+		{"tcp dport 9999", "accept", "Port 9999"},
+		{`iifname "tailscale0"`, "accept", "Incoming on interface tailscale0"},
+		{`oifname "tailscale0"`, "accept", "Outgoing on interface tailscale0"},
+		{"ip saddr 100.64.0.0/10", "drop", "Traffic from 100.64.0.0/10"},
+		{"ip6 daddr ff02::fb", "accept", "Traffic to ff02::fb"},
+		{"limit rate 3/minute burst 10 packets", "return", "Rate-limited"},
+		{"", "masquerade", "Rewrites the packet's address (NAT)"},
+		{"meta mark & 0x00ff0000 == 0x00040000", "masquerade", "Rewrites the packet's address (NAT)"},
+		{"some completely novel expression nft has never produced", "accept", ""},
+		{"", "accept", ""},
+	}
+	for _, c := range cases {
+		if got := explainNFTRule(c.match, c.verdict); got != c.want {
+			t.Errorf("explainNFTRule(%q, %q) = %q, want %q", c.match, c.verdict, got, c.want)
+		}
+	}
+}
+
 func TestBuildFirewallView_NFTables_Structured(t *testing.T) {
 	c := models.Collector{
 		Name:               "hetzner-1",

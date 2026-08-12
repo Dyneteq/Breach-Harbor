@@ -68,6 +68,13 @@ type NFRule struct {
 	// the condensed rule row — precomputed so the template needs no
 	// custom FuncMap entry.
 	PacketsHuman string
+	// Explanation is a short plain-English gloss of Match ("Port 22
+	// (SSH)", "Return traffic for connections already allowed out"),
+	// heuristically derived — empty when nothing in Match matched a
+	// known pattern. Best-effort, not a full nft grammar: covers the
+	// vocabulary common to ufw/fail2ban/tailscale/breach-harbor
+	// rulesets, not arbitrary hand-written nft.
+	Explanation string
 }
 
 // NFSet is one `set <name> { ... }` block within a table — breach-
@@ -252,7 +259,99 @@ func parseNFTRule(raw string) NFRule {
 	r.Match = strings.TrimSpace(match)
 	r.Verdict = verdict
 	r.VerdictClass = nftVerdictClass(verdict)
+	r.Explanation = explainNFTRule(r.Match, r.Verdict)
 	return r
+}
+
+// wellKnownPorts glosses the ports actually seen in ufw/fail2ban/
+// tailscale/breach-harbor rulesets — not an IANA-complete list, just
+// enough that "tcp dport 22" reads as "Port 22 (SSH)" instead of
+// requiring a lookup.
+var wellKnownPorts = map[string]string{
+	"20": "FTP data", "21": "FTP", "22": "SSH", "23": "Telnet",
+	"25": "SMTP", "53": "DNS", "67": "DHCP server", "68": "DHCP client",
+	"80": "HTTP", "110": "POP3", "123": "NTP", "137": "NetBIOS name",
+	"138": "NetBIOS datagram", "139": "SMB (NetBIOS)", "143": "IMAP",
+	"443": "HTTPS", "445": "SMB", "465": "SMTPS", "546": "DHCPv6 client",
+	"547": "DHCPv6 server", "587": "SMTP (submission)", "993": "IMAPS",
+	"995": "POP3S", "1900": "SSDP/UPnP", "3389": "RDP",
+	"5353": "mDNS", "41641": "Tailscale",
+}
+
+var (
+	nftDportRe = regexp.MustCompile(`dport (\d+)`)
+	nftIfaceRe = regexp.MustCompile(`\b(iifname|oifname)\s+"([^"]+)"`)
+	nftAddrRe  = regexp.MustCompile(`\bip6?\s+(saddr|daddr)\s+(\S+)`)
+)
+
+// explainNFTRule heuristically glosses a rule's match condition into a
+// short plain-English phrase for display next to it. Ordered checks,
+// first match wins — this is pattern-matching against the vocabulary
+// nft's pretty-printer actually produces for ufw/fail2ban/tailscale/
+// breach-harbor rulesets, not a general nft expression parser, so an
+// unrecognized match condition returns "" rather than guessing wrong.
+func explainNFTRule(match, verdict string) string {
+	m := strings.TrimSpace(match)
+	if m == "" {
+		switch {
+		case verdict == "masquerade", strings.HasPrefix(verdict, "snat"), strings.HasPrefix(verdict, "dnat"):
+			return "Rewrites the packet's address (NAT)"
+		}
+		return ""
+	}
+	lower := strings.ToLower(m)
+
+	switch {
+	case strings.Contains(lower, `iifname "lo"`), strings.Contains(lower, `oifname "lo"`):
+		return "Loopback (localhost) traffic"
+	case strings.Contains(lower, "ct state related,established"), strings.Contains(lower, "ct state established,related"):
+		return "Return traffic for connections already allowed out"
+	case strings.Contains(lower, "ct state invalid"):
+		return "Malformed or untracked packet"
+	case strings.Contains(lower, "echo-request"), strings.Contains(lower, "echo-reply"):
+		return "Ping (ICMP echo)"
+	case strings.Contains(lower, "destination-unreachable"), strings.Contains(lower, "time-exceeded"),
+		strings.Contains(lower, "parameter-problem"), strings.Contains(lower, "packet-too-big"):
+		return "ICMP diagnostic message"
+	case strings.Contains(lower, "nd-router"), strings.Contains(lower, "nd-neighbor"), strings.Contains(lower, "mld-listener"):
+		return "IPv6 neighbor discovery"
+	case strings.Contains(lower, "fib daddr type local"):
+		return "Destined for this host"
+	case strings.Contains(lower, "fib daddr type broadcast"):
+		return "Broadcast destination"
+	case strings.Contains(lower, "fib daddr type multicast"):
+		return "Multicast destination"
+	case strings.Contains(lower, "limit rate"):
+		return "Rate-limited"
+	}
+
+	if pm := nftDportRe.FindStringSubmatch(lower); pm != nil {
+		port := pm[1]
+		if svc, ok := wellKnownPorts[port]; ok {
+			return "Port " + port + " (" + svc + ")"
+		}
+		return "Port " + port
+	}
+	if im := nftIfaceRe.FindStringSubmatch(m); im != nil {
+		dir := "Incoming on"
+		if im[1] == "oifname" {
+			dir = "Outgoing on"
+		}
+		return dir + " interface " + im[2]
+	}
+	if am := nftAddrRe.FindStringSubmatch(m); am != nil {
+		dir := "from"
+		if am[1] == "daddr" {
+			dir = "to"
+		}
+		return "Traffic " + dir + " " + am[2]
+	}
+
+	switch {
+	case verdict == "masquerade", strings.HasPrefix(verdict, "snat"), strings.HasPrefix(verdict, "dnat"):
+		return "Rewrites the packet's address (NAT)"
+	}
+	return ""
 }
 
 // shortenNFTHeader condenses a base-chain declaration line ("type
