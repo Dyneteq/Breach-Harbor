@@ -69,3 +69,8 @@ coverage.html
 # Temporary files
 tmp/
 temp/
+
+# Local dev scratch data (scripts/dev.sh --data-dir). *.db above
+# already covers the SQLite file, but not the signing key or feed
+# cache the server also writes here.
+.dev/
