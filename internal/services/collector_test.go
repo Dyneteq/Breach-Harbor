@@ -209,7 +209,8 @@ func TestRecordFirewallStatus(t *testing.T) {
 		t.Fatal("expected a freshly created collector to have no firewall status yet")
 	}
 
-	if err := svc.RecordFirewallStatus(collector.ID, "nftables", true, []string{"203.0.113.44", "198.51.100.1"}); err != nil {
+	rawConfig := "table inet breachharbor { ... }"
+	if err := svc.RecordFirewallStatus(collector.ID, "nftables", true, []string{"203.0.113.44", "198.51.100.1"}, rawConfig); err != nil {
 		t.Fatalf("RecordFirewallStatus: %v", err)
 	}
 
@@ -226,15 +227,19 @@ func TestRecordFirewallStatus(t *testing.T) {
 	if len(got.FirewallBlockedIPs) != 2 {
 		t.Errorf("FirewallBlockedIPs = %v, want 2 entries", got.FirewallBlockedIPs)
 	}
+	if got.FirewallConfig != rawConfig {
+		t.Errorf("FirewallConfig = %q, want %q", got.FirewallConfig, rawConfig)
+	}
 	if got.FirewallUpdatedAt == nil {
 		t.Fatal("expected FirewallUpdatedAt to be set")
 	}
 
-	// A later report with enforcing=false and no blocked IPs must
-	// actually clear the previous snapshot, not silently keep it —
-	// GORM's Updates(struct) skips zero-valued fields by default,
-	// which RecordFirewallStatus's explicit Select must override.
-	if err := svc.RecordFirewallStatus(collector.ID, "nftables", false, nil); err != nil {
+	// A later report with enforcing=false, no blocked IPs, and no
+	// config must actually clear the previous snapshot, not silently
+	// keep it — GORM's Updates(struct) skips zero-valued fields by
+	// default, which RecordFirewallStatus's explicit Select must
+	// override.
+	if err := svc.RecordFirewallStatus(collector.ID, "nftables", false, nil, ""); err != nil {
 		t.Fatalf("RecordFirewallStatus (second call): %v", err)
 	}
 	got2, err := svc.GetCollectorByID(collector.ID)
@@ -246,6 +251,9 @@ func TestRecordFirewallStatus(t *testing.T) {
 	}
 	if len(got2.FirewallBlockedIPs) != 0 {
 		t.Errorf("FirewallBlockedIPs = %v, want empty after re-reporting with none blocked", got2.FirewallBlockedIPs)
+	}
+	if got2.FirewallConfig != "" {
+		t.Errorf("FirewallConfig = %q, want cleared after re-reporting with none", got2.FirewallConfig)
 	}
 }
 

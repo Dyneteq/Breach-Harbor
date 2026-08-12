@@ -397,12 +397,27 @@ func (m *LocalAgentManager) runDrainLoop(ctx context.Context, fst store.AgentSto
 	}
 }
 
+// firewallConfigMaxBytes mirrors internal/agent's constant of the same
+// name (unexported there, so duplicated rather than shared) — caps how
+// much of a backend's raw Status dump gets stored/rendered.
+const firewallConfigMaxBytes = 32 * 1024
+
+func truncateFirewallConfig(s string) string {
+	if len(s) <= firewallConfigMaxBytes {
+		return s
+	}
+	return s[:firewallConfigMaxBytes] + "\n... (truncated)"
+}
+
 // reportFirewallStatus records the local agent's firewall.Backend
 // snapshot straight through collectorService — no HTTP hop, no bearer
 // token, mirroring drainOnce above. A stopped agent (m.a == nil, a
 // race against Stop between the ticker firing and this running) is a
-// silent no-op: nothing to report. Firewall.List failures are logged
-// and skipped, same tolerance as internal/agent's sendFirewallStatus.
+// silent no-op: nothing to report. List/Status failures are logged but
+// don't abort the report — same reasoning as internal/agent's
+// sendFirewallStatus: a failure here (typically the "none" stand-in
+// backend, since no real one was detected at startup) is itself
+// information the dashboard should surface, not hide.
 func (m *LocalAgentManager) reportFirewallStatus(ctx context.Context, collectorID uint) {
 	m.mu.Lock()
 	a := m.a
@@ -412,16 +427,24 @@ func (m *LocalAgentManager) reportFirewallStatus(ctx context.Context, collectorI
 		return
 	}
 
-	targets, err := a.Firewall.List(ctx)
-	if err != nil {
+	var ips []string
+	if targets, err := a.Firewall.List(ctx); err != nil {
 		log.Printf("[local-agent] firewall status: listing %s rules failed: %v", a.Firewall.Name(), err)
-		return
+	} else {
+		ips = make([]string, 0, len(targets))
+		for _, t := range targets {
+			ips = append(ips, t.Addr.Addr().String())
+		}
 	}
-	ips := make([]string, 0, len(targets))
-	for _, t := range targets {
-		ips = append(ips, t.Addr.Addr().String())
+
+	var config string
+	if s, err := a.Firewall.Status(ctx); err != nil {
+		log.Printf("[local-agent] firewall status: reading %s config failed: %v", a.Firewall.Name(), err)
+	} else {
+		config = truncateFirewallConfig(s)
 	}
-	if err := m.collectorService.RecordFirewallStatus(collectorID, a.Firewall.Name(), enforcing, ips); err != nil {
+
+	if err := m.collectorService.RecordFirewallStatus(collectorID, a.Firewall.Name(), enforcing, ips, config); err != nil {
 		log.Printf("[local-agent] record firewall status: %v", err)
 	}
 }
@@ -486,3 +509,4 @@ func (u unavailableBackend) Flush(context.Context) error                      { 
 func (u unavailableBackend) Block(context.Context, []firewall.Target) error   { return u.err }
 func (u unavailableBackend) Unblock(context.Context, []firewall.Target) error { return u.err }
 func (u unavailableBackend) List(context.Context) ([]firewall.Target, error)  { return nil, u.err }
+func (u unavailableBackend) Status(context.Context) (string, error)           { return "", u.err }

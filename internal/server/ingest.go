@@ -60,6 +60,7 @@ type firewallStatusRequest struct {
 	Backend    string   `json:"backend" binding:"required"`
 	Enforcing  bool     `json:"enforcing"`
 	BlockedIPs []string `json:"blocked_ips"`
+	Config     string   `json:"config"`
 }
 
 // handleFirewallStatus is POST /v1/firewall-status: an enrolled agent
@@ -77,7 +78,7 @@ func (s *Server) handleFirewallStatus(c *gin.Context) {
 		return
 	}
 
-	if err := s.collectorService.RecordFirewallStatus(collectorID.(uint), req.Backend, req.Enforcing, req.BlockedIPs); err != nil {
+	if err := s.collectorService.RecordFirewallStatus(collectorID.(uint), req.Backend, req.Enforcing, req.BlockedIPs, req.Config); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to record firewall status"})
 		return
 	}

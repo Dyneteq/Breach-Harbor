@@ -189,6 +189,23 @@ func TestParsePFTableShow(t *testing.T) {
 	}
 }
 
+func TestPF_Status_DumpsActiveRules(t *testing.T) {
+	fr := &fakeRunner{run: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		return []byte("block in quick from <bh-blocked>\npass out all\n"), nil
+	}}
+	b := NewPF(fr)
+	out, err := b.Status(context.Background())
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	if !strings.Contains(out, "pass out all") {
+		t.Errorf("expected Status to include rules beyond breach-harbor's own anchor, got %q", out)
+	}
+	if !containsCall(fr.calls, "pfctl", "-s rules") {
+		t.Errorf("expected `pfctl -s rules`, got %+v", fr.calls)
+	}
+}
+
 func TestPF_List_EmptyWhenNeverInitialized(t *testing.T) {
 	fr := &fakeRunner{run: func(ctx context.Context, name string, args ...string) ([]byte, error) {
 		return nil, errors.New("no such table")

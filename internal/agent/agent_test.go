@@ -25,13 +25,22 @@ type fakeBackend struct {
 	unblockCalls int
 	blocked      []firewall.Target
 	blockErr     error
+	listErr      error
+	statusText   string
+	statusErr    error
 }
 
-func (f *fakeBackend) Name() string                                        { return "fake" }
-func (f *fakeBackend) Available(ctx context.Context) error                 { return nil }
-func (f *fakeBackend) Init(ctx context.Context) error                      { f.initCalls++; return nil }
-func (f *fakeBackend) List(ctx context.Context) ([]firewall.Target, error) { return f.blocked, nil }
-func (f *fakeBackend) Flush(ctx context.Context) error                     { return nil }
+func (f *fakeBackend) Name() string                        { return "fake" }
+func (f *fakeBackend) Available(ctx context.Context) error { return nil }
+func (f *fakeBackend) Init(ctx context.Context) error      { f.initCalls++; return nil }
+func (f *fakeBackend) List(ctx context.Context) ([]firewall.Target, error) {
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
+	return f.blocked, nil
+}
+func (f *fakeBackend) Status(ctx context.Context) (string, error) { return f.statusText, f.statusErr }
+func (f *fakeBackend) Flush(ctx context.Context) error            { return nil }
 func (f *fakeBackend) Unblock(ctx context.Context, targets []firewall.Target) error {
 	f.unblockCalls++
 	return nil
@@ -341,6 +350,7 @@ func TestAgent_SendFirewallStatus_Success_ReportsBackendAndBlockedIPs(t *testing
 
 	a, _, fw, logs := newTestAgent(t, true)
 	fw.blocked = []firewall.Target{{Addr: netip.MustParsePrefix("203.0.113.44/32")}}
+	fw.statusText = "table inet breachharbor { ... }"
 	u := NewUploader(nil, Enrollment{ServerURL: ts.URL, Token: "t"})
 	u.Client = ts.Client()
 	a.Uploader = u
@@ -361,6 +371,46 @@ func TestAgent_SendFirewallStatus_Success_ReportsBackendAndBlockedIPs(t *testing
 	}
 	if len(gotBody.BlockedIPs) != 1 || gotBody.BlockedIPs[0] != "203.0.113.44" {
 		t.Errorf("BlockedIPs = %v, want [203.0.113.44]", gotBody.BlockedIPs)
+	}
+	if gotBody.Config != fw.statusText {
+		t.Errorf("Config = %q, want %q", gotBody.Config, fw.statusText)
+	}
+}
+
+// TestAgent_SendFirewallStatus_ListErrorStillReports is a regression
+// guard for the bug where a List failure (typically because no real
+// firewall backend was detected — a.Firewall is the "none" stand-in)
+// caused sendFirewallStatus to return before ever calling the server,
+// leaving the dashboard's collector card blank forever instead of
+// showing "no backend detected."
+func TestAgent_SendFirewallStatus_ListErrorStillReports(t *testing.T) {
+	var gotBody firewallStatusPayload
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer ts.Close()
+
+	a, _, fw, logs := newTestAgent(t, false)
+	fw.listErr = fmt.Errorf("no usable firewall backend found")
+	fw.statusErr = fmt.Errorf("no usable firewall backend found")
+	u := NewUploader(nil, Enrollment{ServerURL: ts.URL, Token: "t"})
+	u.Client = ts.Client()
+	a.Uploader = u
+
+	a.sendFirewallStatus(context.Background())
+
+	if !hasTag(*logs, "warn") {
+		t.Errorf("expected a 'warn' log line for the List/Status failure, got: %v", *logs)
+	}
+	if gotBody.Backend != "fake" {
+		t.Errorf("expected the report to still be sent with Backend = %q, got %q", "fake", gotBody.Backend)
+	}
+	if len(gotBody.BlockedIPs) != 0 {
+		t.Errorf("BlockedIPs = %v, want none when List failed", gotBody.BlockedIPs)
+	}
+	if gotBody.Config != "" {
+		t.Errorf("Config = %q, want empty when Status failed", gotBody.Config)
 	}
 }
 

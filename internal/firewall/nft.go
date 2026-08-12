@@ -177,3 +177,14 @@ func (b *NFTables) Flush(ctx context.Context) error {
 	}
 	return nil
 }
+
+// Status dumps the host's entire nftables ruleset — every table, not
+// just breach-harbor's own — so an operator can see the full picture
+// this agent's rules sit inside of.
+func (b *NFTables) Status(ctx context.Context) (string, error) {
+	out, err := b.run.Run(ctx, "nft", "list", "ruleset")
+	if err != nil {
+		return "", fmt.Errorf("nft list ruleset: %w", err)
+	}
+	return string(out), nil
+}

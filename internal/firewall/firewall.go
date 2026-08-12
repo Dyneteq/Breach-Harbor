@@ -46,4 +46,12 @@ type Backend interface {
 	// Init was never called (no-op) or the agent isn't currently
 	// running.
 	Flush(ctx context.Context) error
+
+	// Status returns a raw, human-readable dump of the host's entire
+	// current ruleset for this backend — not just the addresses List
+	// reports, but every rule in effect, including ones this agent
+	// never added (an admin's SSH allow rule, another tool's chain,
+	// etc.). Read-only, purely for display/diagnostics; never mutates
+	// state and is never consulted for enforcement decisions.
+	Status(ctx context.Context) (string, error)
 }

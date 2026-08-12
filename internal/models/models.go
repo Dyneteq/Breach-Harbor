@@ -93,8 +93,8 @@ type Collector struct {
 	// together (internal/handlers/web.go's collectorStatus).
 	LastHeartbeat *time.Time `json:"last_heartbeat"`
 	// FirewallBackend is the name of the firewall.Backend ("nftables",
-	// "ipset", "pf", or "none" if unavailable) this collector's agent
-	// last reported using — empty until its first
+	// "ipset", "ufw", "pf", or "none" if unavailable) this collector's
+	// agent last reported using — empty until its first
 	// POST /v1/firewall-status (internal/agent's sendFirewallStatus).
 	FirewallBackend string `json:"firewall_backend"`
 	// FirewallEnforcing mirrors the agent's own enforce/dry-run mode at
@@ -107,10 +107,16 @@ type Collector struct {
 	// collector's agent currently has blocked in its own rules — not
 	// the server's published blocklist, which every enrolled agent
 	// merges in and isn't specific to any one collector.
-	FirewallBlockedIPs []string   `gorm:"type:text;serializer:json" json:"firewall_blocked_ips"`
-	FirewallUpdatedAt  *time.Time `json:"firewall_updated_at"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
+	FirewallBlockedIPs []string `gorm:"type:text;serializer:json" json:"firewall_blocked_ips"`
+	// FirewallConfig is the raw dump of the agent's firewall.Backend
+	// Status() call at the moment of its last report: the host's whole
+	// ruleset (every allow/deny rule, not just FirewallBlockedIPs) as
+	// backend-native text (e.g. `ufw status verbose`, `nft list
+	// ruleset`) — display-only, truncated agent-side at ~32KB.
+	FirewallConfig    string     `gorm:"type:text" json:"firewall_config"`
+	FirewallUpdatedAt *time.Time `json:"firewall_updated_at"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
 
 	User      User       `json:"user,omitempty"`
 	Incidents []Incident `json:"incidents,omitempty"`

@@ -217,26 +217,56 @@ func (a *Agent) sendHeartbeat(ctx context.Context) {
 	}
 }
 
+// firewallConfigMaxBytes caps how much of a backend's raw Status dump
+// gets uploaded/stored/rendered — a busy host's full nftables ruleset
+// or `ufw status verbose` could otherwise be arbitrarily large. This is
+// display-only data, so a truncated tail is an acceptable trade for
+// bounding request/DB/page size.
+const firewallConfigMaxBytes = 32 * 1024
+
+func truncateFirewallConfig(s string) string {
+	if len(s) <= firewallConfigMaxBytes {
+		return s
+	}
+	return s[:firewallConfigMaxBytes] + "\n... (truncated)"
+}
+
 // sendFirewallStatus reports this agent's firewall.Backend's current
 // state to the server — which backend, whether it's actually
-// enforcing, and which addresses it has blocked right now — so the
-// dashboard can show, per collector, the real firewall changes this
-// agent has made rather than just its configured mode. Firewall.List
-// is read-only and safe to call whether or not Init has ever run (a
-// dry-run agent simply reports zero blocked addresses); a failure here
-// is logged and skipped like every other server-reachability call in
-// this file, never fatal.
+// enforcing, which addresses it has blocked right now, and (best
+// effort) the host's full raw ruleset — so the dashboard can show, per
+// collector, the real firewall changes this agent has made rather than
+// just its configured mode. List/Status are both read-only and safe to
+// call whether or not Init has ever run (a dry-run agent simply reports
+// zero blocked addresses).
+//
+// Unlike an unreachable server (nothing to do about that but wait for
+// the next tick), a List/Status failure still carries information worth
+// reporting: it usually means no working firewall backend was detected
+// at startup (a.Firewall is the "none" stand-in, whose calls always
+// error) or the real backend is misbehaving — either way, the
+// dashboard should say so rather than stay silent. So a failure here is
+// logged and the affected field left empty, but the report is still
+// sent; only the upload itself is skip-on-failure.
 func (a *Agent) sendFirewallStatus(ctx context.Context) {
-	targets, err := a.Firewall.List(ctx)
-	if err != nil {
+	var ips []string
+	if targets, err := a.Firewall.List(ctx); err != nil {
 		a.emit(time.Now(), "warn", "firewall status: listing %s rules failed: %v", a.Firewall.Name(), err)
-		return
+	} else {
+		ips = make([]string, 0, len(targets))
+		for _, t := range targets {
+			ips = append(ips, t.Addr.Addr().String())
+		}
 	}
-	ips := make([]string, 0, len(targets))
-	for _, t := range targets {
-		ips = append(ips, t.Addr.Addr().String())
+
+	var config string
+	if s, err := a.Firewall.Status(ctx); err != nil {
+		a.emit(time.Now(), "warn", "firewall status: reading %s config failed: %v", a.Firewall.Name(), err)
+	} else {
+		config = truncateFirewallConfig(s)
 	}
-	if err := a.Uploader.SendFirewallStatus(ctx, a.Firewall.Name(), a.Config.Enforce, ips); err != nil {
+
+	if err := a.Uploader.SendFirewallStatus(ctx, a.Firewall.Name(), a.Config.Enforce, ips, config); err != nil {
 		a.emit(time.Now(), "warn", "firewall status upload to %s failed: %v", a.Uploader.Enrollment.ServerURL, err)
 	}
 }

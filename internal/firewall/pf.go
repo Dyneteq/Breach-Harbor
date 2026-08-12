@@ -140,6 +140,18 @@ func parsePFTableShow(out []byte) []Target {
 // Application Firewall, a VPN client, the user's own pf.conf) may
 // depend on pf staying enabled. Safe to call even if Init was never
 // run.
+// Status dumps the host's active pf ruleset — every rule pf is
+// currently enforcing, not just the breach-harbor anchor's own table —
+// so an operator can see the full picture this agent's rules sit
+// inside of.
+func (b *PF) Status(ctx context.Context) (string, error) {
+	out, err := b.run.Run(ctx, "pfctl", "-s", "rules")
+	if err != nil {
+		return "", fmt.Errorf("pfctl -s rules: %w", err)
+	}
+	return string(out), nil
+}
+
 func (b *PF) Flush(ctx context.Context) error {
 	if !b.anchorLoaded(ctx) {
 		return nil

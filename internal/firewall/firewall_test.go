@@ -263,6 +263,51 @@ func TestParseIPSetSave(t *testing.T) {
 	}
 }
 
+func TestNFTables_Status_DumpsFullRuleset(t *testing.T) {
+	fr := &fakeRunner{run: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		return []byte("table inet other { ... }\ntable inet breachharbor { ... }\n"), nil
+	}}
+	b := NewNFTables(fr)
+	out, err := b.Status(context.Background())
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	if !strings.Contains(out, "table inet other") {
+		t.Errorf("expected Status to include tables beyond breach-harbor's own, got %q", out)
+	}
+	if !containsCall(fr.calls, "nft", "list ruleset") {
+		t.Errorf("expected `nft list ruleset`, got %+v", fr.calls)
+	}
+}
+
+func TestIPSet_Status_CombinesIptablesAndIpset(t *testing.T) {
+	fr := &fakeRunner{run: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		switch name {
+		case "iptables":
+			return []byte("-A INPUT -j BREACHHARBOR\n"), nil
+		case "ip6tables":
+			return nil, errors.New("ip6tables not available")
+		case "ipset":
+			return []byte("Name: bh-blocked4\n"), nil
+		}
+		return nil, nil
+	}}
+	b := NewIPSet(fr)
+	out, err := b.Status(context.Background())
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	if !strings.Contains(out, "-A INPUT -j BREACHHARBOR") {
+		t.Errorf("expected iptables -S output in the dump, got %q", out)
+	}
+	if !strings.Contains(out, "unavailable") {
+		t.Errorf("expected the ip6tables failure to be noted inline, not swallowed, got %q", out)
+	}
+	if !strings.Contains(out, "Name: bh-blocked4") {
+		t.Errorf("expected ipset list output in the dump, got %q", out)
+	}
+}
+
 func TestDetect_UnknownBackend(t *testing.T) {
 	if _, err := Detect(context.Background(), "bogus"); err == nil {
 		t.Fatal("expected an error for an unknown backend name")

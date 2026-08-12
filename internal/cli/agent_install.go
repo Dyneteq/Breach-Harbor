@@ -57,7 +57,7 @@ func runAgentUninstall(ctx context.Context, args []string, stdout, stderr io.Wri
 	fs.SetOutput(stderr)
 	purge := fs.Bool("purge", false, "also remove the agent's data directory")
 	dataDir := fs.String("data-dir", agent.DefaultDataDir(), "agent data directory")
-	firewallName := fs.String("firewall", "auto", "firewall backend: nft, ipset, pf, or auto")
+	firewallName := fs.String("firewall", "auto", "firewall backend: nft, ipset, ufw, pf, or auto")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}

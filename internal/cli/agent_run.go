@@ -30,6 +30,7 @@ func (u unavailableBackend) Flush(context.Context) error                      { 
 func (u unavailableBackend) Block(context.Context, []firewall.Target) error   { return u.err }
 func (u unavailableBackend) Unblock(context.Context, []firewall.Target) error { return u.err }
 func (u unavailableBackend) List(context.Context) ([]firewall.Target, error)  { return nil, u.err }
+func (u unavailableBackend) Status(context.Context) (string, error)           { return "", u.err }
 
 func runAgentRun(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("agent run", flag.ContinueOnError)
@@ -42,7 +43,7 @@ func runAgentRun(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	feedFlag := fs.String("feed", "", "comma-separated provider=on|off overrides, e.g. spamhaus=off")
 	abuseIPDBKey := fs.String("abuseipdb-key", "", "AbuseIPDB API key (enables the abuseipdb feed)")
 	refresh := fs.Duration("refresh", 15*time.Minute, "how often to re-check feeds")
-	firewallName := fs.String("firewall", "auto", "firewall backend: nft, ipset, pf, or auto")
+	firewallName := fs.String("firewall", "auto", "firewall backend: nft, ipset, ufw, pf, or auto")
 	jsonOut := fs.Bool("json", false, "structured JSON log lines instead of the human banner")
 	if err := fs.Parse(args); err != nil {
 		return 2

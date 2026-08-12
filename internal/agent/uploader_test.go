@@ -76,7 +76,7 @@ func TestSendFirewallStatus_Success(t *testing.T) {
 	u := NewUploader(newTestStore(t), Enrollment{ServerURL: ts.URL, Token: "t"})
 	u.Client = ts.Client()
 
-	err := u.SendFirewallStatus(context.Background(), "nftables", true, []string{"203.0.113.44", "198.51.100.1"})
+	err := u.SendFirewallStatus(context.Background(), "nftables", true, []string{"203.0.113.44", "198.51.100.1"}, "table inet breachharbor { ... }")
 	if err != nil {
 		t.Fatalf("SendFirewallStatus: %v", err)
 	}
@@ -92,6 +92,9 @@ func TestSendFirewallStatus_Success(t *testing.T) {
 	if gotBody.Backend != "nftables" || !gotBody.Enforcing || len(gotBody.BlockedIPs) != 2 {
 		t.Errorf("request body = %+v, want backend=nftables enforcing=true 2 blocked IPs", gotBody)
 	}
+	if gotBody.Config != "table inet breachharbor { ... }" {
+		t.Errorf("Config = %q, want the raw ruleset dump", gotBody.Config)
+	}
 }
 
 func TestSendFirewallStatus_ServerError(t *testing.T) {
@@ -103,7 +106,7 @@ func TestSendFirewallStatus_ServerError(t *testing.T) {
 	u := NewUploader(newTestStore(t), Enrollment{ServerURL: ts.URL, Token: "t"})
 	u.Client = ts.Client()
 
-	if err := u.SendFirewallStatus(context.Background(), "nftables", false, nil); err == nil {
+	if err := u.SendFirewallStatus(context.Background(), "nftables", false, nil, ""); err == nil {
 		t.Fatal("expected an error when the server returns 500")
 	}
 }

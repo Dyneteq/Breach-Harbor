@@ -144,19 +144,21 @@ func (s *CollectorService) RecordHeartbeat(collectorID uint) error {
 // no HTTP hop). Unlike incidents, this always overwrites in place:
 // only the most recent snapshot is kept, there is no history. Select
 // forces every listed field to be written even when zero
-// (enforcing=false, an empty blockedIPs) — GORM's default Updates(struct)
-// silently skips zero-valued fields, which would leave a stale
-// "enforcing" or blocked-IP list behind exactly when it flips off.
-func (s *CollectorService) RecordFirewallStatus(collectorID uint, backend string, enforcing bool, blockedIPs []string) error {
+// (enforcing=false, an empty blockedIPs, an empty config) — GORM's
+// default Updates(struct) silently skips zero-valued fields, which
+// would leave a stale "enforcing" or blocked-IP list behind exactly
+// when it flips off.
+func (s *CollectorService) RecordFirewallStatus(collectorID uint, backend string, enforcing bool, blockedIPs []string, config string) error {
 	now := time.Now()
 	update := models.Collector{
 		FirewallBackend:    backend,
 		FirewallEnforcing:  enforcing,
 		FirewallBlockedIPs: blockedIPs,
+		FirewallConfig:     config,
 		FirewallUpdatedAt:  &now,
 	}
 	return s.db.Model(&models.Collector{}).Where("id = ?", collectorID).
-		Select("FirewallBackend", "FirewallEnforcing", "FirewallBlockedIPs", "FirewallUpdatedAt").
+		Select("FirewallBackend", "FirewallEnforcing", "FirewallBlockedIPs", "FirewallConfig", "FirewallUpdatedAt").
 		Updates(update).Error
 }
 

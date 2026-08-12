@@ -171,6 +171,31 @@ func (b *IPSet) Flush(ctx context.Context) error {
 	return nil
 }
 
+// Status dumps the host's entire iptables/ip6tables ruleset plus every
+// ipset set — not just breach-harbor's own chains and sets — so an
+// operator can see the full picture this agent's rules sit inside of.
+// Each section is best-effort: a family or tool that errors (e.g. no
+// IPv6 support compiled in) is noted inline rather than failing the
+// whole dump.
+func (b *IPSet) Status(ctx context.Context) (string, error) {
+	var out strings.Builder
+	b.statusSection(ctx, &out, "iptables -S", "iptables", "-S")
+	b.statusSection(ctx, &out, "ip6tables -S", "ip6tables", "-S")
+	b.statusSection(ctx, &out, "ipset list", "ipset", "list")
+	return out.String(), nil
+}
+
+func (b *IPSet) statusSection(ctx context.Context, out *strings.Builder, title, name string, args ...string) {
+	fmt.Fprintf(out, "# %s\n", title)
+	section, err := b.run.Run(ctx, name, args...)
+	if err != nil {
+		fmt.Fprintf(out, "(unavailable: %v)\n\n", err)
+		return
+	}
+	out.Write(section)
+	out.WriteString("\n")
+}
+
 func (b *IPSet) flushFamily(ctx context.Context, table, chain, set string) error {
 	jumpArgs := []string{"INPUT", "-j", chain}
 	if b.ruleExists(ctx, table, jumpArgs...) {

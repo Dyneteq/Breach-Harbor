@@ -155,16 +155,20 @@ type firewallStatusPayload struct {
 	Backend    string   `json:"backend"`
 	Enforcing  bool     `json:"enforcing"`
 	BlockedIPs []string `json:"blocked_ips"`
+	// Config is the backend's raw Status() dump — the host's whole
+	// ruleset, not just BlockedIPs — for display only.
+	Config string `json:"config"`
 }
 
 // SendFirewallStatus reports this agent's firewall.Backend's current
 // state to the server: which backend, whether it's actually enforcing,
-// and which addresses it has blocked right now (its own rules, not the
-// server's published blocklist). Like Heartbeat, this is
-// fire-and-forget — no queue, no retry; the next tick sends a fresh
-// snapshot regardless of whether this one landed.
-func (u *Uploader) SendFirewallStatus(ctx context.Context, backend string, enforcing bool, blockedIPs []string) error {
-	body := firewallStatusPayload{Backend: backend, Enforcing: enforcing, BlockedIPs: blockedIPs}
+// which addresses it has blocked right now (its own rules, not the
+// server's published blocklist), and the backend's raw ruleset dump.
+// Like Heartbeat, this is fire-and-forget — no queue, no retry; the
+// next tick sends a fresh snapshot regardless of whether this one
+// landed.
+func (u *Uploader) SendFirewallStatus(ctx context.Context, backend string, enforcing bool, blockedIPs []string, config string) error {
+	body := firewallStatusPayload{Backend: backend, Enforcing: enforcing, BlockedIPs: blockedIPs, Config: config}
 	data, err := json.Marshal(body)
 	if err != nil {
 		return err
