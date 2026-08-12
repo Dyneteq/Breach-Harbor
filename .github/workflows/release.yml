@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: arm64
+          - goos: openbsd
+            goarch: amd64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+
+      - name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          COMMIT="$(git rev-parse --short HEAD)"
+          DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          MODULE="github.com/Dyneteq/Breach-Harbor"
+          LDFLAGS="-s -w -X $MODULE/internal/version.Version=$VERSION -X $MODULE/internal/version.Commit=$COMMIT -X $MODULE/internal/version.Date=$DATE"
+
+          mkdir -p dist
+          go build -ldflags "$LDFLAGS" -o dist/breachharbor ./cmd/breachharbor
+
+          ASSET="breachharbor_${VERSION}_${GOOS}_${GOARCH}"
+          mkdir -p "$ASSET"
+          cp dist/breachharbor "$ASSET/breachharbor"
+          cp README.md LICENCE "$ASSET/" 2>/dev/null || true
+          tar -czf "${ASSET}.tar.gz" "$ASSET"
+          sha256sum "${ASSET}.tar.gz" > "${ASSET}.tar.gz.sha256"
+          echo "ASSET=$ASSET" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ASSET }}
+          path: |
+            *.tar.gz
+            *.tar.gz.sha256
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Combine checksums
+        run: cat artifacts/*.sha256 > artifacts/checksums.txt
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --generate-notes \
+            artifacts/*.tar.gz artifacts/checksums.txt
