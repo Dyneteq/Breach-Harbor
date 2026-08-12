@@ -76,15 +76,24 @@ type Collector struct {
 	// EnrolledAt is set the moment an agent successfully calls
 	// POST /v1/enroll with this collector's token — proof the token
 	// works and the server was reachable, independent of whether any
-	// data has flowed yet. LastOnline (below) only moves once the
-	// server has actually ingested an observation, which can be much
-	// later (or never, on a quiet host) — the dashboard shows three
-	// distinct states from these two fields: never enrolled, enrolled
-	// but no data yet, and online.
+	// data has flowed yet.
 	EnrolledAt *time.Time `json:"enrolled_at"`
+	// LastOnline moves only when the server has actually ingested a
+	// real observation — "this collector has reported an incident,"
+	// not "the agent process is alive." Can lag far behind
+	// LastHeartbeat on a quiet host, or never move at all.
 	LastOnline *time.Time `json:"last_online"`
-	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
+	// LastHeartbeat moves on every POST /v1/heartbeat, which an
+	// enrolled agent sends on its own fixed ticker (see
+	// internal/agent's heartbeatInterval) whether or not it has
+	// anything to report — this is the presence signal: the process
+	// is up and can reach the server right now, independent of
+	// whether it's detected anything. The dashboard derives Online/
+	// Error/Enrolled/Never-connected from EnrolledAt + LastHeartbeat
+	// together (internal/handlers/web.go's collectorStatus).
+	LastHeartbeat *time.Time `json:"last_heartbeat"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 
 	User      User       `json:"user,omitempty"`
 	Incidents []Incident `json:"incidents,omitempty"`

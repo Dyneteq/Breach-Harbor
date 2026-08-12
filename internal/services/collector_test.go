@@ -168,6 +168,36 @@ func TestMarkEnrolled(t *testing.T) {
 	}
 }
 
+func TestRecordHeartbeat(t *testing.T) {
+	svc := newTestCollectorService(t)
+	user := createTestUser(t, svc.db)
+	collector, _, err := svc.CreateCollector(user.ID, "web-1", "203.0.113.10")
+	if err != nil {
+		t.Fatalf("CreateCollector: %v", err)
+	}
+	if collector.LastHeartbeat != nil {
+		t.Fatal("expected a freshly created collector to have a nil LastHeartbeat")
+	}
+
+	if err := svc.RecordHeartbeat(collector.ID); err != nil {
+		t.Fatalf("RecordHeartbeat: %v", err)
+	}
+
+	got, err := svc.GetCollectorByID(collector.ID)
+	if err != nil {
+		t.Fatalf("GetCollectorByID: %v", err)
+	}
+	if got.LastHeartbeat == nil {
+		t.Fatal("expected LastHeartbeat to be set after RecordHeartbeat")
+	}
+	if got.EnrolledAt != nil {
+		t.Error("expected EnrolledAt to remain nil — RecordHeartbeat is independent of enrollment tracking")
+	}
+	if got.LastOnline != nil {
+		t.Error("expected LastOnline to remain nil — a heartbeat is not real incident data")
+	}
+}
+
 func TestCreateIncidentsBatch_InvalidToken(t *testing.T) {
 	svc := newTestCollectorService(t)
 	if _, err := svc.CreateIncidentsBatch("not-a-real-token", []ObservationInput{{IP: "198.51.100.1", IncidentType: "x"}}); err == nil {

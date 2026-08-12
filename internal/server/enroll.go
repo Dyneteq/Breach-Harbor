@@ -43,3 +43,19 @@ func (s *Server) handleEnroll(c *gin.Context) {
 		PublicKey:     s.signer.PublicKey(),
 	})
 }
+
+// handleHeartbeat is POST /v1/heartbeat: an enrolled agent calls this
+// on its own fixed ticker (internal/agent's heartbeatInterval)
+// whether or not it has anything to report — the presence signal
+// behind the dashboard's Online/Error status, independent of
+// UpdateLastOnline (which only moves when real data flows, via
+// /v1/observations). No request body: the bearer token alone, already
+// validated by CollectorAuthMiddleware, is the entire payload.
+func (s *Server) handleHeartbeat(c *gin.Context) {
+	collectorID, _ := c.Get("collector_id")
+	if err := s.collectorService.RecordHeartbeat(collectorID.(uint)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to record heartbeat"})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
