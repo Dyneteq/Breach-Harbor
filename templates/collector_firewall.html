@@ -262,35 +262,35 @@
     </div>
 
     {{else if eq .firewall.Kind "nftables"}}
-    <!-- nftables: browsable table -> chain -> rule tree -->
+    <!-- nftables: one card per table, a single dense rule list per chain
+         (no nested accordions — chain names are section labels, not
+         another click target) -->
     <div class="row mb-4">
         <div class="col-12">
             {{range .firewall.NFTables}}
-            <div class="card border-0 shadow-sm mb-3{{if .IsOwn}} border-start border-4 border-danger{{end}}">
+            <div class="card border-0 shadow-sm mb-3 nft-table-card{{if .IsOwn}} nft-table-own{{end}}">
                 <details{{if .IsOwn}} open{{end}}>
-                    <summary class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2" style="cursor:pointer;">
-                        <span>
-                            <i class="fas fa-table me-2"></i>
-                            <span class="font-monospace">{{.Family}} {{.Name}}</span>
+                    <summary class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span class="font-monospace">
+                            <i class="fas fa-table me-2"></i>{{.Family}} {{.Name}}
                             {{if .IsOwn}}<span class="badge bg-danger ms-2">breach-harbor</span>{{end}}
                         </span>
-                        <span class="small text-muted">
+                        <span class="small text-muted text-end">
                             {{len .Chains}} chain{{if ne (len .Chains) 1}}s{{end}}{{if .Sets}} &middot; {{len .Sets}} set{{if ne (len .Sets) 1}}s{{end}}{{end}}
                             {{if .Warning}}<br><i class="fas fa-exclamation-triangle me-1 text-warning"></i>{{.Warning}}{{end}}
                         </span>
                     </summary>
-                    <div class="card-body">
+                    <div class="card-body pt-2">
                         {{if .Sets}}
-                        <div class="mb-3">
-                            <div class="small text-muted text-uppercase mb-1">Sets</div>
+                        <div class="nft-sets">
                             {{range .Sets}}
-                            <div class="mb-2">
-                                <span class="badge bg-light text-dark border me-1">{{.Name}}</span>
+                            <div class="nft-set">
+                                <span class="badge bg-secondary">{{.Name}}</span>
                                 <span class="small text-muted">{{.TypeLine}} &middot; {{len .Elements}} element{{if ne (len .Elements) 1}}s{{end}}</span>
                                 {{if .Elements}}
-                                <details class="mt-1">
-                                    <summary class="small text-primary" style="cursor:pointer;">Show elements</summary>
-                                    <div class="small font-monospace mt-1" style="max-height:150px; overflow-y:auto;">
+                                <details class="d-inline">
+                                    <summary class="small text-primary d-inline" style="cursor:pointer;">show</summary>
+                                    <div class="small font-monospace nft-set-elements">
                                         {{range .Elements}}{{.}}<br>{{end}}
                                     </div>
                                 </details>
@@ -300,39 +300,22 @@
                         </div>
                         {{end}}
 
-                        {{$anyRules := false}}
-                        {{range .Chains}}{{if .Rules}}{{$anyRules = true}}{{end}}{{end}}
-                        {{if $anyRules}}
-                        <div class="small text-muted text-uppercase mb-1">Chains</div>
-                        {{end}}
-                        {{range .Chains}}
-                        {{if .Rules}}
-                        <details class="mb-2">
-                            <summary class="small" style="cursor:pointer;">
-                                <span class="font-monospace fw-bold">{{.Name}}</span>
-                                <span class="text-muted">({{len .Rules}} rule{{if ne (len .Rules) 1}}s{{end}})</span>
-                                {{if .Header}}<span class="text-muted"> &mdash; {{.Header}}</span>{{end}}
-                            </summary>
-                            <div class="table-responsive mt-1">
-                                <table class="table table-sm table-hover mb-0">
-                                    <tbody>
-                                        {{range .Rules}}
-                                        <tr>
-                                            <td class="font-monospace small">{{if .Match}}{{.Match}}{{else}}<span class="text-muted">&mdash;</span>{{end}}</td>
-                                            <td class="text-nowrap">
-                                                {{if .Verdict}}<span class="badge bg-{{.VerdictClass}}">{{.Verdict}}</span>{{end}}
-                                            </td>
-                                            <td class="text-muted small text-end text-nowrap">
-                                                {{if .HasCounter}}{{.Packets}} pkts{{end}}
-                                            </td>
-                                        </tr>
-                                        {{end}}
-                                    </tbody>
-                                </table>
+                        <div class="nft-rules">
+                        {{range .Chains}}{{if .Rules}}
+                            <div class="nft-chain-label">
+                                {{.Name}}
+                                <span class="nft-chain-count">{{len .Rules}}</span>
+                                {{if .HeaderShort}}<span class="nft-chain-header">{{.HeaderShort}}</span>{{end}}
                             </div>
-                        </details>
-                        {{end}}
-                        {{end}}
+                            {{range .Rules}}
+                            <div class="nft-rule{{if .VerdictClass}} nft-rule-{{.VerdictClass}}{{end}}" title="{{.Raw}}">
+                                <span class="nft-rule-match">{{if .Match}}{{.Match}}{{else}}&mdash;{{end}}</span>
+                                {{if .Verdict}}<span class="nft-rule-verdict">{{.Verdict}}</span>{{end}}
+                                <span class="nft-rule-count">{{if .HasCounter}}{{.PacketsHuman}}{{end}}</span>
+                            </div>
+                            {{end}}
+                        {{end}}{{end}}
+                        </div>
                     </div>
                 </details>
             </div>

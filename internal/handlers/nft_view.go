@@ -39,7 +39,11 @@ type NFChain struct {
 	// input priority filter; policy drop;"), empty for a non-base
 	// (regular/jump-target) chain.
 	Header string
-	Rules  []NFRule
+	// HeaderShort is Header condensed to "hook input, policy drop" for
+	// a one-line chain label — falls back to Header verbatim if it
+	// doesn't match the expected shape.
+	HeaderShort string
+	Rules       []NFRule
 }
 
 // NFRule is one rule line within a chain, split into its displayable
@@ -60,6 +64,10 @@ type NFRule struct {
 	Packets      uint64
 	Bytes        uint64
 	HasCounter   bool
+	// PacketsHuman is Packets formatted compactly ("1.2K", "3.4M") for
+	// the condensed rule row — precomputed so the template needs no
+	// custom FuncMap entry.
+	PacketsHuman string
 }
 
 // NFSet is one `set <name> { ... }` block within a table — breach-
@@ -77,6 +85,7 @@ var (
 	nftSetOpenRe   = regexp.MustCompile(`^set\s+(\S+)\s*\{$`)
 	nftCounterRe   = regexp.MustCompile(`counter packets (\d+) bytes (\d+)`)
 	nftSpacesRe    = regexp.MustCompile(`\s+`)
+	nftHeaderRe    = regexp.MustCompile(`hook\s+(\S+)\s+priority\s+([^;]+);\s*policy\s+(\S+?);?\s*$`)
 )
 
 // parseNFTRuleset parses `nft list ruleset` output (what
@@ -180,6 +189,7 @@ func parseNFTRuleset(raw string) []NFTable {
 				flushChain()
 			case curChain.Header == "" && strings.HasPrefix(line, "type ") && strings.Contains(line, "hook"):
 				curChain.Header = line
+				curChain.HeaderShort = shortenNFTHeader(line)
 			default:
 				curChain.Rules = append(curChain.Rules, parseNFTRule(line))
 			}
@@ -235,6 +245,7 @@ func parseNFTRule(raw string) NFRule {
 		}
 		text = strings.TrimSpace(nftCounterRe.ReplaceAllString(text, ""))
 		text = strings.TrimSpace(nftSpacesRe.ReplaceAllString(text, " "))
+		r.PacketsHuman = humanizeCount(r.Packets)
 	}
 
 	match, verdict := extractNFTVerdict(text)
@@ -242,6 +253,40 @@ func parseNFTRule(raw string) NFRule {
 	r.Verdict = verdict
 	r.VerdictClass = nftVerdictClass(verdict)
 	return r
+}
+
+// shortenNFTHeader condenses a base-chain declaration line ("type
+// filter hook input priority filter; policy drop;") into a one-line
+// label ("hook input, policy drop") for the condensed chain header —
+// falls back to the line verbatim if it doesn't match the expected
+// shape (unusual chain types this parser hasn't seen).
+func shortenNFTHeader(line string) string {
+	m := nftHeaderRe.FindStringSubmatch(line)
+	if m == nil {
+		return line
+	}
+	return "hook " + m[1] + ", policy " + m[3]
+}
+
+// humanizeCount compactly formats a packet/byte counter ("1.2K",
+// "3.4M") so a rule row's counter column stays a fixed, scannable
+// width instead of a long raw integer.
+func humanizeCount(n uint64) string {
+	var val float64
+	var suffix string
+	switch {
+	case n >= 1_000_000_000:
+		val, suffix = float64(n)/1_000_000_000, "G"
+	case n >= 1_000_000:
+		val, suffix = float64(n)/1_000_000, "M"
+	case n >= 1_000:
+		val, suffix = float64(n)/1_000, "K"
+	default:
+		return strconv.FormatUint(n, 10)
+	}
+	s := strconv.FormatFloat(val, 'f', 1, 64)
+	s = strings.TrimSuffix(s, ".0")
+	return s + suffix
 }
 
 // extractNFTVerdict pulls the terminal statement off the end of a

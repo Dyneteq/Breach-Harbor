@@ -128,8 +128,47 @@ func TestParseNFTRuleset_ChainHeaderCapturedSeparatelyFromRules(t *testing.T) {
 	if !strings.Contains(input.Header, "policy drop") {
 		t.Errorf("Header = %q, want it to contain the base-chain declaration", input.Header)
 	}
+	if input.HeaderShort != "hook input, policy drop" {
+		t.Errorf("HeaderShort = %q, want %q", input.HeaderShort, "hook input, policy drop")
+	}
 	if len(input.Rules) != 2 {
 		t.Fatalf("got %d rules, want 2 (the header line must not be counted as a rule): %+v", len(input.Rules), input.Rules)
+	}
+}
+
+func TestShortenNFTHeader(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"type filter hook input priority filter; policy drop;", "hook input, policy drop"},
+		{"type filter hook input priority filter - 1; policy accept;", "hook input, policy accept"},
+		{"type nat hook postrouting priority srcnat; policy accept;", "hook postrouting, policy accept"},
+		{"something nft has never produced before", "something nft has never produced before"},
+	}
+	for _, c := range cases {
+		if got := shortenNFTHeader(c.in); got != c.want {
+			t.Errorf("shortenNFTHeader(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestHumanizeCount(t *testing.T) {
+	cases := []struct {
+		in   uint64
+		want string
+	}{
+		{0, "0"},
+		{42, "42"},
+		{999, "999"},
+		{1000, "1K"},
+		{1500, "1.5K"},
+		{177992, "178K"},
+		{1_000_000, "1M"},
+		{1_234_567, "1.2M"},
+		{1_000_000_000, "1G"},
+	}
+	for _, c := range cases {
+		if got := humanizeCount(c.in); got != c.want {
+			t.Errorf("humanizeCount(%d) = %q, want %q", c.in, got, c.want)
+		}
 	}
 }
 

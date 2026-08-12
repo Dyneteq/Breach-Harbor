@@ -693,6 +693,96 @@ pre {
 .bh-term-tag-dim     { color: var(--bh-text-dim); }
 .bh-term-msg { color: var(--bh-text); }
 
+/* ---- nftables rule browser (collector_firewall.html) --------------------- */
+/* A ruleset dump can run to hundreds of rules across a dozen tables, so
+   this is deliberately terminal-dense (one line per rule, no per-row
+   card/table chrome) rather than a conventional bordered table —
+   density and a colored left edge per verdict are what make it
+   scannable at that volume, matching .bh-term's log-line styling. */
+
+details > summary { cursor: pointer; }
+details > summary::-webkit-details-marker { color: var(--bh-text-faint); }
+
+.nft-table-own { border-left: 3px solid var(--bh-danger) !important; }
+
+.nft-sets { margin-bottom: 10px; }
+.nft-set { margin-bottom: 4px; font-size: 12px; }
+.nft-set-elements {
+  margin-top: 2px;
+  padding: 6px 8px;
+  max-height: 150px;
+  overflow-y: auto;
+  background: var(--bh-bg);
+  border: 1px solid var(--bh-border-hair);
+  color: var(--bh-text-dim);
+}
+
+.nft-rules { font-family: var(--font-mono); font-size: 12px; }
+.nft-chain-label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 14px 0 2px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--bh-border-hair);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bh-text-faint);
+}
+.nft-rules > .nft-chain-label:first-child { margin-top: 0; }
+.nft-chain-count {
+  color: var(--bh-text-dim);
+  text-transform: none;
+  letter-spacing: normal;
+}
+.nft-chain-header {
+  margin-left: auto;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--bh-text-faint);
+}
+
+.nft-rule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 6px;
+  border-left: 2px solid transparent;
+  line-height: 1.8;
+}
+.nft-rule:hover { background: var(--bh-accent-dim); }
+.nft-rule-match {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--bh-text-dim);
+}
+.nft-rule-verdict {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bh-text-faint);
+}
+.nft-rule-count {
+  flex: 0 0 auto;
+  width: 5ch;
+  text-align: right;
+  color: var(--bh-text-faint);
+  font-size: 11px;
+}
+.nft-rule-success  { border-left-color: var(--bh-success); }
+.nft-rule-success  .nft-rule-verdict { color: var(--bh-success); }
+.nft-rule-danger   { border-left-color: var(--bh-danger); }
+.nft-rule-danger   .nft-rule-verdict { color: var(--bh-danger); }
+.nft-rule-secondary{ border-left-color: var(--bh-secondary); }
+.nft-rule-info     { border-left-color: var(--bh-info); }
+.nft-rule-info     .nft-rule-verdict { color: var(--bh-info); }
+.nft-rule-light    { border-left-color: var(--bh-border-hair); }
+
 /* ---- responsive ---------------------------------------------------------- */
 
 @media (max-width: 991px) {
