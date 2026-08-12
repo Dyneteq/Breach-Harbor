@@ -121,6 +121,12 @@
                             <div class="small text-muted mt-1">
                                 Last seen: {{.LastOnline.Format "Jan 2, 15:04"}}
                             </div>
+                            {{else if .EnrolledAt}}
+                            <span class="badge bg-info text-dark">Enrolled</span>
+                            <div class="small text-muted mt-1">
+                                Enrolled: {{.EnrolledAt.Format "Jan 2, 15:04"}}<br>
+                                Waiting for first data
+                            </div>
                             {{else}}
                             <span class="badge bg-secondary">Never Connected</span>
                             {{end}}

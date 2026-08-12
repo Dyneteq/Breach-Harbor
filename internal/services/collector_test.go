@@ -141,6 +141,33 @@ func TestCreateIncidentsBatch(t *testing.T) {
 	}
 }
 
+func TestMarkEnrolled(t *testing.T) {
+	svc := newTestCollectorService(t)
+	user := createTestUser(t, svc.db)
+	collector, _, err := svc.CreateCollector(user.ID, "web-1", "203.0.113.10")
+	if err != nil {
+		t.Fatalf("CreateCollector: %v", err)
+	}
+	if collector.EnrolledAt != nil {
+		t.Fatal("expected a freshly created collector to have a nil EnrolledAt")
+	}
+
+	if err := svc.MarkEnrolled(collector.ID); err != nil {
+		t.Fatalf("MarkEnrolled: %v", err)
+	}
+
+	got, err := svc.GetCollectorByID(collector.ID)
+	if err != nil {
+		t.Fatalf("GetCollectorByID: %v", err)
+	}
+	if got.EnrolledAt == nil {
+		t.Fatal("expected EnrolledAt to be set after MarkEnrolled")
+	}
+	if got.LastOnline != nil {
+		t.Error("expected LastOnline to remain nil — MarkEnrolled must not imply data has flowed")
+	}
+}
+
 func TestCreateIncidentsBatch_InvalidToken(t *testing.T) {
 	svc := newTestCollectorService(t)
 	if _, err := svc.CreateIncidentsBatch("not-a-real-token", []ObservationInput{{IP: "198.51.100.1", IncidentType: "x"}}); err == nil {

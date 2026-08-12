@@ -68,11 +68,20 @@ type IPAddress struct {
 // plaintext is returned to the caller exactly once, at creation time
 // (GitHub-PAT-style) — see services.CollectorService.CreateCollector.
 type Collector struct {
-	ID         uint       `gorm:"primaryKey" json:"id"`
-	Name       string     `gorm:"unique;not null" json:"name" validate:"required"`
-	IP         string     `json:"ip" validate:"required,ip"`
-	TokenHash  string     `gorm:"uniqueIndex;not null" json:"-"`
-	UserID     uint       `json:"user_id"`
+	ID        uint   `gorm:"primaryKey" json:"id"`
+	Name      string `gorm:"unique;not null" json:"name" validate:"required"`
+	IP        string `json:"ip" validate:"required,ip"`
+	TokenHash string `gorm:"uniqueIndex;not null" json:"-"`
+	UserID    uint   `json:"user_id"`
+	// EnrolledAt is set the moment an agent successfully calls
+	// POST /v1/enroll with this collector's token — proof the token
+	// works and the server was reachable, independent of whether any
+	// data has flowed yet. LastOnline (below) only moves once the
+	// server has actually ingested an observation, which can be much
+	// later (or never, on a quiet host) — the dashboard shows three
+	// distinct states from these two fields: never enrolled, enrolled
+	// but no data yet, and online.
+	EnrolledAt *time.Time `json:"enrolled_at"`
 	LastOnline *time.Time `json:"last_online"`
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
