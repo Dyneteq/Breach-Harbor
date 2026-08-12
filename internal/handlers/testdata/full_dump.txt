@@ -1,0 +1,513 @@
+# Warning: table ip filter is managed by iptables-nft, do not touch!
+table ip filter {
+	chain ufw-before-logging-input {
+	}
+
+	chain ufw-before-logging-output {
+	}
+
+	chain ufw-before-logging-forward {
+	}
+
+	chain ufw-before-input {
+		iifname "lo" counter packets 880 bytes 91243 accept
+		ct state related,established counter packets 31650 bytes 34765105 accept
+		ct state invalid counter packets 192 bytes 62175 jump ufw-logging-deny
+		ct state invalid counter packets 192 bytes 62175 drop
+		ip protocol icmp icmp type destination-unreachable counter packets 0 bytes 0 accept
+		ip protocol icmp icmp type time-exceeded counter packets 0 bytes 0 accept
+		ip protocol icmp icmp type parameter-problem counter packets 0 bytes 0 accept
+		ip protocol icmp icmp type echo-request counter packets 331 bytes 20122 accept
+		udp sport 67 udp dport 68 counter packets 0 bytes 0 accept
+		counter packets 22468 bytes 1381225 jump ufw-not-local
+		ip daddr 224.0.0.251 udp dport 5353 counter packets 0 bytes 0 accept
+		ip daddr 239.255.255.250 udp dport 1900 counter packets 0 bytes 0 accept
+		counter packets 22468 bytes 1381225 jump ufw-user-input
+	}
+
+	chain ufw-before-output {
+		oifname "lo" counter packets 880 bytes 91243 accept
+		ct state related,established counter packets 59028 bytes 8431042 accept
+		counter packets 22628 bytes 2113596 jump ufw-user-output
+	}
+
+	chain ufw-before-forward {
+		ct state related,established counter packets 0 bytes 0 accept
+		ip protocol icmp icmp type destination-unreachable counter packets 0 bytes 0 accept
+		ip protocol icmp icmp type time-exceeded counter packets 0 bytes 0 accept
+		ip protocol icmp icmp type parameter-problem counter packets 0 bytes 0 accept
+		ip protocol icmp icmp type echo-request counter packets 0 bytes 0 accept
+		counter packets 0 bytes 0 jump ufw-user-forward
+	}
+
+	chain ufw-after-input {
+		udp dport 137 counter packets 3 bytes 234 jump ufw-skip-to-policy-input
+		udp dport 138 counter packets 0 bytes 0 jump ufw-skip-to-policy-input
+		tcp dport 139 counter packets 4 bytes 192 jump ufw-skip-to-policy-input
+		tcp dport 445 counter packets 128 bytes 6564 jump ufw-skip-to-policy-input
+		udp dport 67 counter packets 0 bytes 0 jump ufw-skip-to-policy-input
+		udp dport 68 counter packets 0 bytes 0 jump ufw-skip-to-policy-input
+		fib daddr type broadcast counter packets 0 bytes 0 jump ufw-skip-to-policy-input
+	}
+
+	chain ufw-after-output {
+	}
+
+	chain ufw-after-forward {
+	}
+
+	chain ufw-after-logging-input {
+		limit rate 3/minute burst 10 packets counter packets 2588 bytes 123780 log prefix "[UFW BLOCK] "
+	}
+
+	chain ufw-after-logging-output {
+	}
+
+	chain ufw-after-logging-forward {
+		limit rate 3/minute burst 10 packets counter packets 0 bytes 0 log prefix "[UFW BLOCK] "
+	}
+
+	chain ufw-reject-input {
+	}
+
+	chain ufw-reject-output {
+	}
+
+	chain ufw-reject-forward {
+	}
+
+	chain ufw-track-input {
+	}
+
+	chain ufw-track-output {
+		ip protocol tcp ct state new counter packets 4605 bytes 286524 accept
+		ip protocol udp ct state new counter packets 17460 bytes 1801040 accept
+	}
+
+	chain ufw-track-forward {
+	}
+
+	chain INPUT {
+		type filter hook input priority filter; policy drop;
+		counter packets 81985 bytes 51534121 jump ts-input
+		counter packets 55521 bytes 36319870 jump ufw-before-logging-input
+		counter packets 55521 bytes 36319870 jump ufw-before-input
+		counter packets 19995 bytes 1236291 jump ufw-after-input
+		counter packets 19860 bytes 1229301 jump ufw-after-logging-input
+		counter packets 19860 bytes 1229301 jump ufw-reject-input
+		counter packets 19860 bytes 1229301 jump ufw-track-input
+	}
+
+	chain OUTPUT {
+		type filter hook output priority filter; policy accept;
+		counter packets 82536 bytes 10635881 jump ufw-before-logging-output
+		counter packets 82536 bytes 10635881 jump ufw-before-output
+		counter packets 22628 bytes 2113596 jump ufw-after-output
+		counter packets 22628 bytes 2113596 jump ufw-after-logging-output
+		counter packets 22628 bytes 2113596 jump ufw-reject-output
+		counter packets 22628 bytes 2113596 jump ufw-track-output
+	}
+
+	chain FORWARD {
+		type filter hook forward priority filter; policy drop;
+		counter packets 0 bytes 0 jump ts-forward
+		counter packets 0 bytes 0 jump ufw-before-logging-forward
+		counter packets 0 bytes 0 jump ufw-before-forward
+		counter packets 0 bytes 0 jump ufw-after-forward
+		counter packets 0 bytes 0 jump ufw-after-logging-forward
+		counter packets 0 bytes 0 jump ufw-reject-forward
+		counter packets 0 bytes 0 jump ufw-track-forward
+	}
+
+	chain ufw-logging-deny {
+		ct state invalid limit rate 3/minute burst 10 packets counter packets 192 bytes 62175 return
+		limit rate 3/minute burst 10 packets counter packets 0 bytes 0 log prefix "[UFW BLOCK] "
+	}
+
+	chain ufw-logging-allow {
+		limit rate 3/minute burst 10 packets counter packets 0 bytes 0 log prefix "[UFW ALLOW] "
+	}
+
+	chain ufw-skip-to-policy-input {
+		counter packets 135 bytes 6990 drop
+	}
+
+	chain ufw-skip-to-policy-output {
+		counter packets 0 bytes 0 accept
+	}
+
+	chain ufw-skip-to-policy-forward {
+		counter packets 0 bytes 0 drop
+	}
+
+	chain ufw-not-local {
+		fib daddr type local counter packets 22468 bytes 1381225 return
+		fib daddr type multicast counter packets 0 bytes 0 return
+		fib daddr type broadcast counter packets 0 bytes 0 return
+		limit rate 3/minute burst 10 packets counter packets 0 bytes 0 jump ufw-logging-deny
+		counter packets 0 bytes 0 drop
+	}
+
+	chain ufw-user-input {
+		tcp dport 22  counter packets 1142 bytes 69268 accept
+		tcp dport 80 counter packets 882 bytes 50513 accept
+		tcp dport 443 counter packets 449 bytes 25153 accept
+		iifname "tailscale0" counter packets 0 bytes 0 accept
+		udp dport 41641 counter packets 0 bytes 0 accept
+	}
+
+	chain ufw-user-output {
+	}
+
+	chain ufw-user-forward {
+	}
+
+	chain ufw-user-logging-input {
+	}
+
+	chain ufw-user-logging-output {
+	}
+
+	chain ufw-user-logging-forward {
+	}
+
+	chain ufw-user-limit {
+		limit rate 3/minute burst 5 packets counter packets 0 bytes 0 log prefix "[UFW LIMIT BLOCK] "
+		counter packets 0 bytes 0 reject
+	}
+
+	chain ufw-user-limit-accept {
+		counter packets 0 bytes 0 accept
+	}
+
+	chain ts-input {
+		ip saddr 100.65.5.6 iifname "lo" counter packets 0 bytes 0 accept
+		iifname "tailscale0" counter packets 8894 bytes 10910466 accept
+		udp dport 41641 counter packets 23899 bytes 12882978 accept
+		ip saddr 100.115.92.0/23 iifname != "tailscale0" counter packets 0 bytes 0 return
+		ip saddr 100.64.0.0/10 iifname != "tailscale0" counter packets 0 bytes 0 drop
+	}
+
+	chain ts-forward {
+		iifname "tailscale0" counter packets 0 bytes 0 meta mark set mark and 0xff00ffff xor 0x40000
+		meta mark & 0x00ff0000 == 0x00040000 counter packets 0 bytes 0 accept
+		ip saddr 100.64.0.0/10 oifname "tailscale0" counter packets 0 bytes 0 drop
+		oifname "tailscale0" counter packets 0 bytes 0 accept
+	}
+}
+# Warning: table ip6 filter is managed by iptables-nft, do not touch!
+table ip6 filter {
+	chain ufw6-before-logging-input {
+	}
+
+	chain ufw6-before-logging-output {
+	}
+
+	chain ufw6-before-logging-forward {
+	}
+
+	chain ufw6-before-input {
+		iifname "lo" counter packets 10 bytes 965 accept
+		rt type 0 counter packets 0 bytes 0 drop
+		ct state related,established counter packets 177330 bytes 229557437 accept
+		meta l4proto ipv6-icmp icmpv6 type echo-reply counter packets 0 bytes 0 accept
+		ct state invalid counter packets 0 bytes 0 jump ufw6-logging-deny
+		ct state invalid counter packets 0 bytes 0 drop
+		meta l4proto ipv6-icmp icmpv6 type destination-unreachable counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type packet-too-big counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type time-exceeded counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type parameter-problem counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type echo-request counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type nd-router-solicit ip6 hoplimit 255 counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type nd-router-advert ip6 hoplimit 255 counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type nd-neighbor-solicit ip6 hoplimit 255 counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type nd-neighbor-advert ip6 hoplimit 255 counter packets 652 bytes 41728 accept
+		meta l4proto ipv6-icmp xt match "icmp6" ip6 hoplimit 255 counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp xt match "icmp6" ip6 hoplimit 255 counter packets 0 bytes 0 accept
+		ip6 saddr fe80::/10 meta l4proto ipv6-icmp icmpv6 type mld-listener-query counter packets 0 bytes 0 accept
+		ip6 saddr fe80::/10 meta l4proto ipv6-icmp icmpv6 type mld-listener-report counter packets 0 bytes 0 accept
+		ip6 saddr fe80::/10 meta l4proto ipv6-icmp icmpv6 type mld-listener-done counter packets 0 bytes 0 accept
+		ip6 saddr fe80::/10 meta l4proto ipv6-icmp xt match "icmp6" counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp xt match "icmp6" ip6 hoplimit 255 counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp xt match "icmp6" ip6 hoplimit 255 counter packets 0 bytes 0 accept
+		ip6 saddr fe80::/10 meta l4proto ipv6-icmp xt match "icmp6" ip6 hoplimit 1 counter packets 0 bytes 0 accept
+		ip6 saddr fe80::/10 meta l4proto ipv6-icmp xt match "icmp6" ip6 hoplimit 1 counter packets 0 bytes 0 accept
+		ip6 saddr fe80::/10 meta l4proto ipv6-icmp xt match "icmp6" ip6 hoplimit 1 counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp xt match "icmp6" counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp xt match "icmp6" counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp xt match "icmp6" counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp xt match "icmp6" counter packets 0 bytes 0 accept
+		ip6 saddr fe80::/10 ip6 daddr fe80::/10 udp sport 547 udp dport 546 counter packets 0 bytes 0 accept
+		ip6 daddr ff02::fb udp dport 5353 counter packets 0 bytes 0 accept
+		ip6 daddr ff02::f udp dport 1900 counter packets 0 bytes 0 accept
+		counter packets 0 bytes 0 jump ufw6-user-input
+	}
+
+	chain ufw6-before-output {
+		oifname "lo" counter packets 10 bytes 965 accept
+		rt type 0 counter packets 0 bytes 0 drop
+		ct state related,established counter packets 119450 bytes 14299253 accept
+		meta l4proto ipv6-icmp icmpv6 type destination-unreachable counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type packet-too-big counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type time-exceeded counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type parameter-problem counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type echo-request counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type echo-reply counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type nd-router-solicit ip6 hoplimit 255 counter packets 42 bytes 2168 accept
+		meta l4proto ipv6-icmp icmpv6 type nd-neighbor-advert ip6 hoplimit 255 counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type nd-neighbor-solicit ip6 hoplimit 255 counter packets 652 bytes 46944 accept
+		meta l4proto ipv6-icmp icmpv6 type nd-router-advert ip6 hoplimit 255 counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp xt match "icmp6" ip6 hoplimit 255 counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp xt match "icmp6" ip6 hoplimit 255 counter packets 0 bytes 0 accept
+		ip6 saddr fe80::/10 meta l4proto ipv6-icmp icmpv6 type mld-listener-query counter packets 0 bytes 0 accept
+		ip6 saddr fe80::/10 meta l4proto ipv6-icmp icmpv6 type mld-listener-report counter packets 0 bytes 0 accept
+		ip6 saddr fe80::/10 meta l4proto ipv6-icmp icmpv6 type mld-listener-done counter packets 0 bytes 0 accept
+		ip6 saddr fe80::/10 meta l4proto ipv6-icmp xt match "icmp6" counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp xt match "icmp6" ip6 hoplimit 255 counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp xt match "icmp6" ip6 hoplimit 255 counter packets 0 bytes 0 accept
+		ip6 saddr fe80::/10 meta l4proto ipv6-icmp xt match "icmp6" ip6 hoplimit 1 counter packets 0 bytes 0 accept
+		ip6 saddr fe80::/10 meta l4proto ipv6-icmp xt match "icmp6" ip6 hoplimit 1 counter packets 0 bytes 0 accept
+		ip6 saddr fe80::/10 meta l4proto ipv6-icmp xt match "icmp6" ip6 hoplimit 1 counter packets 0 bytes 0 accept
+		counter packets 5023 bytes 450698 jump ufw6-user-output
+	}
+
+	chain ufw6-before-forward {
+		rt type 0 counter packets 0 bytes 0 drop
+		ct state related,established counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type destination-unreachable counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type packet-too-big counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type time-exceeded counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type parameter-problem counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type echo-request counter packets 0 bytes 0 accept
+		meta l4proto ipv6-icmp icmpv6 type echo-reply counter packets 0 bytes 0 accept
+		counter packets 0 bytes 0 jump ufw6-user-forward
+	}
+
+	chain ufw6-after-input {
+		udp dport 137 counter packets 0 bytes 0 jump ufw6-skip-to-policy-input
+		udp dport 138 counter packets 0 bytes 0 jump ufw6-skip-to-policy-input
+		tcp dport 139 counter packets 0 bytes 0 jump ufw6-skip-to-policy-input
+		tcp dport 445 counter packets 0 bytes 0 jump ufw6-skip-to-policy-input
+		udp dport 546 counter packets 0 bytes 0 jump ufw6-skip-to-policy-input
+		udp dport 547 counter packets 0 bytes 0 jump ufw6-skip-to-policy-input
+	}
+
+	chain ufw6-after-output {
+	}
+
+	chain ufw6-after-forward {
+	}
+
+	chain ufw6-after-logging-input {
+		limit rate 3/minute burst 10 packets counter packets 0 bytes 0 log prefix "[UFW BLOCK] "
+	}
+
+	chain ufw6-after-logging-output {
+	}
+
+	chain ufw6-after-logging-forward {
+		limit rate 3/minute burst 10 packets counter packets 0 bytes 0 log prefix "[UFW BLOCK] "
+	}
+
+	chain ufw6-reject-input {
+	}
+
+	chain ufw6-reject-output {
+	}
+
+	chain ufw6-reject-forward {
+	}
+
+	chain ufw6-track-input {
+	}
+
+	chain ufw6-track-output {
+		meta l4proto tcp ct state new counter packets 121 bytes 9680 accept
+		meta l4proto udp ct state new counter packets 4902 bytes 441018 accept
+	}
+
+	chain ufw6-track-forward {
+	}
+
+	chain INPUT {
+		type filter hook input priority filter; policy drop;
+		counter packets 155555 bytes 189221147 jump ts-input
+		counter packets 177992 bytes 229600130 jump ufw6-before-logging-input
+		counter packets 177992 bytes 229600130 jump ufw6-before-input
+		counter packets 0 bytes 0 jump ufw6-after-input
+		counter packets 0 bytes 0 jump ufw6-after-logging-input
+		counter packets 0 bytes 0 jump ufw6-reject-input
+		counter packets 0 bytes 0 jump ufw6-track-input
+	}
+
+	chain OUTPUT {
+		type filter hook output priority filter; policy accept;
+		counter packets 125177 bytes 14800028 jump ufw6-before-logging-output
+		counter packets 125177 bytes 14800028 jump ufw6-before-output
+		counter packets 5023 bytes 450698 jump ufw6-after-output
+		counter packets 5023 bytes 450698 jump ufw6-after-logging-output
+		counter packets 5023 bytes 450698 jump ufw6-reject-output
+		counter packets 5023 bytes 450698 jump ufw6-track-output
+	}
+
+	chain FORWARD {
+		type filter hook forward priority filter; policy drop;
+		counter packets 0 bytes 0 jump ts-forward
+		counter packets 0 bytes 0 jump ufw6-before-logging-forward
+		counter packets 0 bytes 0 jump ufw6-before-forward
+		counter packets 0 bytes 0 jump ufw6-after-forward
+		counter packets 0 bytes 0 jump ufw6-after-logging-forward
+		counter packets 0 bytes 0 jump ufw6-reject-forward
+		counter packets 0 bytes 0 jump ufw6-track-forward
+	}
+
+	chain ufw6-logging-deny {
+		ct state invalid limit rate 3/minute burst 10 packets counter packets 0 bytes 0 return
+		limit rate 3/minute burst 10 packets counter packets 0 bytes 0 log prefix "[UFW BLOCK] "
+	}
+
+	chain ufw6-logging-allow {
+		limit rate 3/minute burst 10 packets counter packets 0 bytes 0 log prefix "[UFW ALLOW] "
+	}
+
+	chain ufw6-skip-to-policy-input {
+		counter packets 0 bytes 0 drop
+	}
+
+	chain ufw6-skip-to-policy-output {
+		counter packets 0 bytes 0 accept
+	}
+
+	chain ufw6-skip-to-policy-forward {
+		counter packets 0 bytes 0 drop
+	}
+
+	chain ufw6-user-input {
+		tcp dport 22  counter packets 0 bytes 0 accept
+		tcp dport 80 counter packets 0 bytes 0 accept
+		tcp dport 443 counter packets 0 bytes 0 accept
+		iifname "tailscale0" counter packets 0 bytes 0 accept
+		udp dport 41641 counter packets 0 bytes 0 accept
+	}
+
+	chain ufw6-user-output {
+	}
+
+	chain ufw6-user-forward {
+	}
+
+	chain ufw6-user-logging-input {
+	}
+
+	chain ufw6-user-logging-output {
+	}
+
+	chain ufw6-user-logging-forward {
+	}
+
+	chain ufw6-user-limit {
+		limit rate 3/minute burst 5 packets counter packets 0 bytes 0 log prefix "[UFW LIMIT BLOCK] "
+		counter packets 0 bytes 0 reject
+	}
+
+	chain ufw6-user-limit-accept {
+		counter packets 0 bytes 0 accept
+	}
+
+	chain ts-input {
+		ip6 saddr fd7a:115c:a1e0::e939:507 iifname "lo" counter packets 0 bytes 0 accept
+		iifname "tailscale0" counter packets 0 bytes 0 accept
+		udp dport 41641 counter packets 6757 bytes 621644 accept
+	}
+
+	chain ts-forward {
+		iifname "tailscale0" counter packets 0 bytes 0 meta mark set mark and 0xff00ffff xor 0x40000
+		meta mark & 0x00ff0000 == 0x00040000 counter packets 0 bytes 0 accept
+		oifname "tailscale0" counter packets 0 bytes 0 accept
+	}
+}
+table inet f2b-table {
+	set addr-set-sshd {
+		type ipv4_addr
+		elements = { 45.148.10.141, 45.148.10.152,
+			     45.148.10.157, 50.116.72.11,
+			     83.219.249.173, 91.92.40.239,
+			     103.229.125.106, 195.178.110.30,
+			     211.223.107.86 }
+	}
+
+	chain f2b-chain {
+		type filter hook input priority filter - 1; policy accept;
+		tcp dport 22 ip saddr @addr-set-sshd reject with icmp port-unreachable
+	}
+}
+# Warning: table ip nat is managed by iptables-nft, do not touch!
+table ip nat {
+	chain ts-postrouting {
+		meta mark & 0x00ff0000 == 0x00040000 counter packets 0 bytes 0 masquerade
+	}
+
+	chain POSTROUTING {
+		type nat hook postrouting priority srcnat; policy accept;
+		counter packets 9857 bytes 759973 jump ts-postrouting
+	}
+}
+# Warning: table ip6 nat is managed by iptables-nft, do not touch!
+table ip6 nat {
+	chain ts-postrouting {
+		meta mark & 0x00ff0000 == 0x00040000 counter packets 0 bytes 0 # Warning: XT target MASQUERADE not found
+xt target "MASQUERADE"
+	}
+
+	chain POSTROUTING {
+		type nat hook postrouting priority srcnat; policy accept;
+		counter packets 4860 bytes 436293 jump ts-postrouting
+	}
+}
+# Warning: table ip mangle is managed by iptables-nft, do not touch!
+table ip mangle {
+	chain PREROUTING {
+		type filter hook prerouting priority mangle; policy accept;
+		ct state related,established ct mark and 0xff0000 != 0x0 counter packets 23764 bytes 12864268 meta mark set ct mark and 0xff0000
+	}
+
+	chain OUTPUT {
+		type route hook output priority mangle; policy accept;
+		ct state new meta mark & 0x00ff0000 != 0x00000000 counter packets 17103 bytes 1744065 ct mark set mark and 0xff0000
+	}
+}
+# Warning: table ip6 mangle is managed by iptables-nft, do not touch!
+table ip6 mangle {
+	chain PREROUTING {
+		type filter hook prerouting priority mangle; policy accept;
+		ct state related,established ct mark and 0xff0000 != 0x0 counter packets 22130 bytes 2705109 meta mark set ct mark and 0xff0000
+	}
+
+	chain OUTPUT {
+		type route hook output priority mangle; policy accept;
+		ct state new meta mark & 0x00ff0000 != 0x00000000 counter packets 4623 bytes 406280 ct mark set mark and 0xff0000
+	}
+}
+table inet breachharbor {
+	set blocked4 {
+		type ipv4_addr
+		flags interval
+		elements = { 39.171.240.69, 45.148.10.141,
+			     45.148.10.147, 45.148.10.151,
+			     45.148.10.152, 45.148.10.157,
+			     45.153.34.41, 45.173.221.26,
+			     50.116.72.11, 59.24.133.197,
+			     80.94.92.179, 83.219.249.173,
+			     91.92.40.239, 103.229.125.106,
+			     107.167.34.125, 118.37.214.187,
+			     193.32.162.84, 195.178.110.30,
+			     195.178.110.137, 195.178.110.228,
+			     203.154.158.195, 211.223.107.86,
+			     220.196.191.58 }
+	}
+
+	set blocked6 {
+		type ipv6_addr
+		flags interval
+	}
+}

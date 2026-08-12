@@ -28,11 +28,17 @@ type FirewallRule struct {
 // FirewallView is collector_firewall.html's presentation model.
 type FirewallView struct {
 	Collector models.Collector
-	// Structured is true when Rules was parsed successfully. False
-	// means either an unsupported backend, no report yet, or a dump
-	// this parser couldn't make sense of — the template falls back to
-	// showing Collector.FirewallConfig as raw text either way.
-	Structured    bool
+	// Kind selects which structured section the template renders:
+	// "ufw", "nftables", or "" (unsupported backend / no report yet /
+	// a dump this parser couldn't make sense of) — "" falls back to
+	// showing Collector.FirewallConfig as raw text.
+	Kind string
+	// Structured is Kind != "" — kept alongside Kind so the template's
+	// existing boolean checks don't all need rewriting to string
+	// comparisons.
+	Structured bool
+
+	// ufw fields.
 	UFWStatus     string
 	DefaultPolicy string
 	Logging       string
@@ -41,24 +47,40 @@ type FirewallView struct {
 	AllowCount    int
 	DenyCount     int
 	OtherCount    int
+
+	// nftables fields.
+	NFTables   []NFTable
+	TotalRules int // sum of Rules across every table/chain, for the stat tile
 }
 
 // BuildFirewallView turns a collector's raw FirewallConfig dump into a
-// structured, displayable view. Only "ufw" is parsed today — nft/ipset/
-// pf dumps are free-form enough (a DSL block, several concatenated
-// command outputs, a BSD-specific rule syntax) that a naive parse would
-// misrepresent them; showing their raw text plainly beats a wrong table.
+// structured, displayable view. Only "ufw" and "nftables" are parsed
+// today — ipset/iptables-nft/pf dumps are free-form enough (several
+// concatenated command outputs, a BSD-specific rule syntax) that a
+// naive parse would misrepresent them; showing their raw text plainly
+// beats a wrong table.
 func BuildFirewallView(c models.Collector) FirewallView {
 	view := FirewallView{Collector: c}
-	if c.FirewallBackend != "ufw" || strings.TrimSpace(c.FirewallConfig) == "" {
+	if strings.TrimSpace(c.FirewallConfig) == "" {
 		return view
 	}
 
+	switch c.FirewallBackend {
+	case "ufw":
+		buildUFWView(&view, c)
+	case "nftables":
+		buildNFTablesView(&view, c)
+	}
+	return view
+}
+
+func buildUFWView(view *FirewallView, c models.Collector) {
 	rules, status, defaultPolicy, logging := parseUFWStatusVerbose(c.FirewallConfig, c.FirewallBlockedIPs)
 	if len(rules) == 0 {
-		return view
+		return
 	}
 
+	view.Kind = "ufw"
 	view.Structured = true
 	view.Rules = rules
 	view.UFWStatus = status
@@ -75,7 +97,21 @@ func BuildFirewallView(c models.Collector) FirewallView {
 			view.OtherCount++
 		}
 	}
-	return view
+}
+
+func buildNFTablesView(view *FirewallView, c models.Collector) {
+	tables := parseNFTRuleset(c.FirewallConfig)
+	if len(tables) == 0 {
+		return
+	}
+	view.Kind = "nftables"
+	view.Structured = true
+	view.NFTables = tables
+	for _, t := range tables {
+		for _, ch := range t.Chains {
+			view.TotalRules += len(ch.Rules)
+		}
+	}
 }
 
 // parseUFWStatusVerbose parses `ufw status verbose` output (what

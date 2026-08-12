@@ -255,6 +255,48 @@ func TestParseNFTSetElements(t *testing.T) {
 	}
 }
 
+// TestParseNFTSetElements_WrapsAcrossMultipleLines is a regression
+// guard: nft wraps element lists once a set has more than a handful of
+// entries (this is verbatim the shape of a real 23-address blocklist),
+// putting the opening "{" on the "elements =" line but the closing "}"
+// several lines later — a same-line-only check silently returns zero.
+func TestParseNFTSetElements_WrapsAcrossMultipleLines(t *testing.T) {
+	out := []byte(`	set blocked4 {
+		type ipv4_addr
+		flags interval
+		elements = { 39.171.240.69, 45.148.10.141,
+			     45.148.10.147, 45.148.10.151,
+			     45.148.10.152, 45.148.10.157,
+			     45.153.34.41, 45.173.221.26,
+			     50.116.72.11, 59.24.133.197,
+			     80.94.92.179, 83.219.249.173,
+			     91.92.40.239, 103.229.125.106,
+			     107.167.34.125, 118.37.214.187,
+			     193.32.162.84, 195.178.110.30,
+			     195.178.110.137, 195.178.110.228,
+			     203.154.158.195, 211.223.107.86,
+			     220.196.191.58 }
+	}`)
+	targets := parseNFTSetElements(out)
+	if len(targets) != 23 {
+		t.Fatalf("got %d targets, want 23: %+v", len(targets), targets)
+	}
+}
+
+// TestParseNFTSetElements_EmptySet must not treat a set with no
+// elements line at all (nft omits it entirely rather than printing
+// "elements = { }") as an error — just zero targets.
+func TestParseNFTSetElements_EmptySet(t *testing.T) {
+	out := []byte(`	set blocked6 {
+		type ipv6_addr
+		flags interval
+	}`)
+	targets := parseNFTSetElements(out)
+	if len(targets) != 0 {
+		t.Errorf("got %d targets, want 0: %+v", len(targets), targets)
+	}
+}
+
 func TestParseIPSetSave(t *testing.T) {
 	out := []byte("create bh-blocked4 hash:ip family inet\nadd bh-blocked4 203.0.113.44\nadd bh-blocked4 198.51.100.9\n")
 	targets := parseIPSetSave("bh-blocked4", out)

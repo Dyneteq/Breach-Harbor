@@ -133,11 +133,14 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <label class="form-label small text-muted mb-1">
-                        {{if .firewall.Structured}}Rules{{else}}Blocked by breach-harbor{{end}}
+                        {{if eq .firewall.Kind "ufw"}}Rules{{else if eq .firewall.Kind "nftables"}}Rules (all tables){{else}}Blocked by breach-harbor{{end}}
                     </label>
                     <div class="fs-5 fw-bold">
-                        {{if .firewall.Structured}}{{len .firewall.Rules}}{{else}}{{len .firewall.Collector.FirewallBlockedIPs}}{{end}}
+                        {{if eq .firewall.Kind "ufw"}}{{len .firewall.Rules}}{{else if eq .firewall.Kind "nftables"}}{{.firewall.TotalRules}}{{else}}{{len .firewall.Collector.FirewallBlockedIPs}}{{end}}
                     </div>
+                    {{if eq .firewall.Kind "nftables"}}
+                    <div class="small text-muted">{{len .firewall.Collector.FirewallBlockedIPs}} blocked by breach-harbor</div>
+                    {{end}}
                 </div>
             </div>
         </div>
@@ -152,7 +155,7 @@
         </div>
     </div>
 
-    {{if .firewall.Structured}}
+    {{if eq .firewall.Kind "ufw"}}
     <!-- Rule breakdown -->
     <div class="row mb-4">
         <div class="col-md-8">
@@ -257,13 +260,93 @@
             {{end}}
         </div>
     </div>
+
+    {{else if eq .firewall.Kind "nftables"}}
+    <!-- nftables: browsable table -> chain -> rule tree -->
+    <div class="row mb-4">
+        <div class="col-12">
+            {{range .firewall.NFTables}}
+            <div class="card border-0 shadow-sm mb-3{{if .IsOwn}} border-start border-4 border-danger{{end}}">
+                <details{{if .IsOwn}} open{{end}}>
+                    <summary class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2" style="cursor:pointer;">
+                        <span>
+                            <i class="fas fa-table me-2"></i>
+                            <span class="font-monospace">{{.Family}} {{.Name}}</span>
+                            {{if .IsOwn}}<span class="badge bg-danger ms-2">breach-harbor</span>{{end}}
+                        </span>
+                        <span class="small text-muted">
+                            {{len .Chains}} chain{{if ne (len .Chains) 1}}s{{end}}{{if .Sets}} &middot; {{len .Sets}} set{{if ne (len .Sets) 1}}s{{end}}{{end}}
+                            {{if .Warning}}<br><i class="fas fa-exclamation-triangle me-1 text-warning"></i>{{.Warning}}{{end}}
+                        </span>
+                    </summary>
+                    <div class="card-body">
+                        {{if .Sets}}
+                        <div class="mb-3">
+                            <div class="small text-muted text-uppercase mb-1">Sets</div>
+                            {{range .Sets}}
+                            <div class="mb-2">
+                                <span class="badge bg-light text-dark border me-1">{{.Name}}</span>
+                                <span class="small text-muted">{{.TypeLine}} &middot; {{len .Elements}} element{{if ne (len .Elements) 1}}s{{end}}</span>
+                                {{if .Elements}}
+                                <details class="mt-1">
+                                    <summary class="small text-primary" style="cursor:pointer;">Show elements</summary>
+                                    <div class="small font-monospace mt-1" style="max-height:150px; overflow-y:auto;">
+                                        {{range .Elements}}{{.}}<br>{{end}}
+                                    </div>
+                                </details>
+                                {{end}}
+                            </div>
+                            {{end}}
+                        </div>
+                        {{end}}
+
+                        {{$anyRules := false}}
+                        {{range .Chains}}{{if .Rules}}{{$anyRules = true}}{{end}}{{end}}
+                        {{if $anyRules}}
+                        <div class="small text-muted text-uppercase mb-1">Chains</div>
+                        {{end}}
+                        {{range .Chains}}
+                        {{if .Rules}}
+                        <details class="mb-2">
+                            <summary class="small" style="cursor:pointer;">
+                                <span class="font-monospace fw-bold">{{.Name}}</span>
+                                <span class="text-muted">({{len .Rules}} rule{{if ne (len .Rules) 1}}s{{end}})</span>
+                                {{if .Header}}<span class="text-muted"> &mdash; {{.Header}}</span>{{end}}
+                            </summary>
+                            <div class="table-responsive mt-1">
+                                <table class="table table-sm table-hover mb-0">
+                                    <tbody>
+                                        {{range .Rules}}
+                                        <tr>
+                                            <td class="font-monospace small">{{if .Match}}{{.Match}}{{else}}<span class="text-muted">&mdash;</span>{{end}}</td>
+                                            <td class="text-nowrap">
+                                                {{if .Verdict}}<span class="badge bg-{{.VerdictClass}}">{{.Verdict}}</span>{{end}}
+                                            </td>
+                                            <td class="text-muted small text-end text-nowrap">
+                                                {{if .HasCounter}}{{.Packets}} pkts{{end}}
+                                            </td>
+                                        </tr>
+                                        {{end}}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+                        {{end}}
+                        {{end}}
+                    </div>
+                </details>
+            </div>
+            {{end}}
+        </div>
+    </div>
+
     {{else}}
     <div class="alert alert-secondary">
         <i class="fas fa-info-circle me-2"></i>
         {{if eq .firewall.Collector.FirewallBackend "none"}}
         No usable firewall backend was detected on this host — install nftables, iptables+ipset, or iptables-nft, or run <code>ufw enable</code>, then wait for the next report.
         {{else}}
-        A structured rule table isn't available for the <strong>{{.firewall.Collector.FirewallBackend}}</strong> backend yet (currently only ufw is parsed) &mdash; here's the raw configuration this collector last reported.
+        A structured, browsable view isn't available for the <strong>{{.firewall.Collector.FirewallBackend}}</strong> backend yet (currently ufw and nftables are parsed) &mdash; here's the raw configuration this collector last reported.
         {{end}}
     </div>
 
@@ -279,17 +362,19 @@
         </div>
     </div>
     {{end}}
+    {{end}}
 
     {{if .firewall.Collector.FirewallConfig}}
     <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white">
-            <h6 class="mb-0"><i class="fas fa-terminal me-2"></i>Raw configuration</h6>
-        </div>
-        <div class="card-body">
-            <pre class="small font-monospace p-3 bg-light border rounded mb-0" style="max-height:500px; overflow:auto; white-space:pre-wrap;">{{.firewall.Collector.FirewallConfig}}</pre>
-        </div>
+        <details{{if not .firewall.Structured}} open{{end}}>
+            <summary class="card-header bg-white" style="cursor:pointer;">
+                <i class="fas fa-terminal me-2"></i>Raw configuration
+            </summary>
+            <div class="card-body">
+                <pre class="small font-monospace p-3 bg-light border rounded mb-0" style="max-height:500px; overflow:auto; white-space:pre-wrap;">{{.firewall.Collector.FirewallConfig}}</pre>
+            </div>
+        </details>
     </div>
-    {{end}}
     {{end}}
     {{end}}
         </div>

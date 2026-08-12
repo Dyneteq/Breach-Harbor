@@ -138,22 +138,41 @@ func (b *NFTables) List(ctx context.Context) ([]Target, error) {
 	return targets, nil
 }
 
-// parseNFTSetElements extracts addresses from an "elements = { a, b, c }"
-// line in `nft list set` output.
+// parseNFTSetElements extracts addresses from an "elements = { a, b, c
+// }" block in `nft list set` output. nft wraps long element lists
+// across several lines once a set has more than a handful of entries
+// (real-world example: a 23-address blocklist wraps to ~8 lines), so
+// this accumulates from the "elements" line through to whichever later
+// line contains the closing brace — a same-line-only check silently
+// returns zero elements for exactly the sets large enough to matter.
 func parseNFTSetElements(out []byte) []Target {
 	var targets []Target
 	scanner := bufio.NewScanner(strings.NewReader(string(out)))
+	var buf strings.Builder
+	collecting := false
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if !strings.HasPrefix(line, "elements") {
+		if !collecting {
+			if !strings.HasPrefix(line, "elements") {
+				continue
+			}
+			collecting = true
+		} else {
+			buf.WriteString(" ")
+		}
+		buf.WriteString(line)
+		if !strings.Contains(line, "}") {
 			continue
 		}
-		start := strings.Index(line, "{")
-		end := strings.LastIndex(line, "}")
+		collecting = false
+		full := buf.String()
+		buf.Reset()
+		start := strings.Index(full, "{")
+		end := strings.LastIndex(full, "}")
 		if start == -1 || end == -1 || end <= start {
 			continue
 		}
-		for _, raw := range strings.Split(line[start+1:end], ",") {
+		for _, raw := range strings.Split(full[start+1:end], ",") {
 			raw = strings.TrimSpace(raw)
 			if raw == "" {
 				continue
