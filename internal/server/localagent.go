@@ -289,7 +289,9 @@ func (m *LocalAgentManager) SetEnforce(userID uint, on bool) error {
 // runDrainLoop periodically hands the local agent's queued
 // observations to collectorService directly — no HTTP hop, no bearer
 // token, since this runs inside the same process that owns the
-// database.
+// database. It also reports the local agent's live firewall state on
+// the same tick, the in-process counterpart of an enrolled agent's
+// sendFirewallStatus (internal/agent/agent.go).
 func (m *LocalAgentManager) runDrainLoop(ctx context.Context, fst store.AgentStore, collectorID uint) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
@@ -299,7 +301,37 @@ func (m *LocalAgentManager) runDrainLoop(ctx context.Context, fst store.AgentSto
 			return
 		case <-ticker.C:
 			m.drainOnce(fst, collectorID)
+			m.reportFirewallStatus(ctx, collectorID)
 		}
+	}
+}
+
+// reportFirewallStatus records the local agent's firewall.Backend
+// snapshot straight through collectorService — no HTTP hop, no bearer
+// token, mirroring drainOnce above. A stopped agent (m.a == nil, a
+// race against Stop between the ticker firing and this running) is a
+// silent no-op: nothing to report. Firewall.List failures are logged
+// and skipped, same tolerance as internal/agent's sendFirewallStatus.
+func (m *LocalAgentManager) reportFirewallStatus(ctx context.Context, collectorID uint) {
+	m.mu.Lock()
+	a := m.a
+	enforcing := m.enforcing
+	m.mu.Unlock()
+	if a == nil {
+		return
+	}
+
+	targets, err := a.Firewall.List(ctx)
+	if err != nil {
+		log.Printf("[local-agent] firewall status: listing %s rules failed: %v", a.Firewall.Name(), err)
+		return
+	}
+	ips := make([]string, 0, len(targets))
+	for _, t := range targets {
+		ips = append(ips, t.Addr.Addr().String())
+	}
+	if err := m.collectorService.RecordFirewallStatus(collectorID, a.Firewall.Name(), enforcing, ips); err != nil {
+		log.Printf("[local-agent] record firewall status: %v", err)
 	}
 }
 

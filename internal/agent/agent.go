@@ -128,6 +128,7 @@ func (a *Agent) Run(ctx context.Context) error {
 	if a.Uploader != nil {
 		a.syncEnrollment(ctx)
 		a.sendHeartbeat(ctx)
+		a.sendFirewallStatus(ctx)
 	}
 
 	events := make(chan logsource.Event, 256)
@@ -199,6 +200,7 @@ func (a *Agent) Run(ctx context.Context) error {
 		case <-heartbeatTicker.C:
 			if a.Uploader != nil {
 				go a.sendHeartbeat(ctx)
+				go a.sendFirewallStatus(ctx)
 			}
 		}
 	}
@@ -212,6 +214,30 @@ func (a *Agent) Run(ctx context.Context) error {
 func (a *Agent) sendHeartbeat(ctx context.Context) {
 	if err := a.Uploader.Heartbeat(ctx); err != nil {
 		a.emit(time.Now(), "warn", "heartbeat to %s failed: %v", a.Uploader.Enrollment.ServerURL, err)
+	}
+}
+
+// sendFirewallStatus reports this agent's firewall.Backend's current
+// state to the server — which backend, whether it's actually
+// enforcing, and which addresses it has blocked right now — so the
+// dashboard can show, per collector, the real firewall changes this
+// agent has made rather than just its configured mode. Firewall.List
+// is read-only and safe to call whether or not Init has ever run (a
+// dry-run agent simply reports zero blocked addresses); a failure here
+// is logged and skipped like every other server-reachability call in
+// this file, never fatal.
+func (a *Agent) sendFirewallStatus(ctx context.Context) {
+	targets, err := a.Firewall.List(ctx)
+	if err != nil {
+		a.emit(time.Now(), "warn", "firewall status: listing %s rules failed: %v", a.Firewall.Name(), err)
+		return
+	}
+	ips := make([]string, 0, len(targets))
+	for _, t := range targets {
+		ips = append(ips, t.Addr.Addr().String())
+	}
+	if err := a.Uploader.SendFirewallStatus(ctx, a.Firewall.Name(), a.Config.Enforce, ips); err != nil {
+		a.emit(time.Now(), "warn", "firewall status upload to %s failed: %v", a.Uploader.Enrollment.ServerURL, err)
 	}
 }
 

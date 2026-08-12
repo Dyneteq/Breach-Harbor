@@ -198,6 +198,57 @@ func TestRecordHeartbeat(t *testing.T) {
 	}
 }
 
+func TestRecordFirewallStatus(t *testing.T) {
+	svc := newTestCollectorService(t)
+	user := createTestUser(t, svc.db)
+	collector, _, err := svc.CreateCollector(user.ID, "web-1", "203.0.113.10")
+	if err != nil {
+		t.Fatalf("CreateCollector: %v", err)
+	}
+	if collector.FirewallBackend != "" || collector.FirewallUpdatedAt != nil {
+		t.Fatal("expected a freshly created collector to have no firewall status yet")
+	}
+
+	if err := svc.RecordFirewallStatus(collector.ID, "nftables", true, []string{"203.0.113.44", "198.51.100.1"}); err != nil {
+		t.Fatalf("RecordFirewallStatus: %v", err)
+	}
+
+	got, err := svc.GetCollectorByID(collector.ID)
+	if err != nil {
+		t.Fatalf("GetCollectorByID: %v", err)
+	}
+	if got.FirewallBackend != "nftables" {
+		t.Errorf("FirewallBackend = %q, want nftables", got.FirewallBackend)
+	}
+	if !got.FirewallEnforcing {
+		t.Error("expected FirewallEnforcing to be true")
+	}
+	if len(got.FirewallBlockedIPs) != 2 {
+		t.Errorf("FirewallBlockedIPs = %v, want 2 entries", got.FirewallBlockedIPs)
+	}
+	if got.FirewallUpdatedAt == nil {
+		t.Fatal("expected FirewallUpdatedAt to be set")
+	}
+
+	// A later report with enforcing=false and no blocked IPs must
+	// actually clear the previous snapshot, not silently keep it —
+	// GORM's Updates(struct) skips zero-valued fields by default,
+	// which RecordFirewallStatus's explicit Select must override.
+	if err := svc.RecordFirewallStatus(collector.ID, "nftables", false, nil); err != nil {
+		t.Fatalf("RecordFirewallStatus (second call): %v", err)
+	}
+	got2, err := svc.GetCollectorByID(collector.ID)
+	if err != nil {
+		t.Fatalf("GetCollectorByID: %v", err)
+	}
+	if got2.FirewallEnforcing {
+		t.Error("expected FirewallEnforcing to be cleared to false")
+	}
+	if len(got2.FirewallBlockedIPs) != 0 {
+		t.Errorf("FirewallBlockedIPs = %v, want empty after re-reporting with none blocked", got2.FirewallBlockedIPs)
+	}
+}
+
 func TestCreateIncidentsBatch_InvalidToken(t *testing.T) {
 	svc := newTestCollectorService(t)
 	if _, err := svc.CreateIncidentsBatch("not-a-real-token", []ObservationInput{{IP: "198.51.100.1", IncidentType: "x"}}); err == nil {

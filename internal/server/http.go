@@ -61,6 +61,7 @@ func (s *Server) buildRouter() *gin.Engine {
 	{
 		agentV1.POST("/enroll", s.handleEnroll)
 		agentV1.POST("/heartbeat", s.handleHeartbeat)
+		agentV1.POST("/firewall-status", s.handleFirewallStatus)
 		agentV1.POST("/observations", s.handleObservations)
 		agentV1.GET("/blocklist", s.handleGetBlocklist)
 	}

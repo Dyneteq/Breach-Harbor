@@ -92,8 +92,25 @@ type Collector struct {
 	// Error/Enrolled/Never-connected from EnrolledAt + LastHeartbeat
 	// together (internal/handlers/web.go's collectorStatus).
 	LastHeartbeat *time.Time `json:"last_heartbeat"`
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedAt     time.Time  `json:"updated_at"`
+	// FirewallBackend is the name of the firewall.Backend ("nftables",
+	// "ipset", "pf", or "none" if unavailable) this collector's agent
+	// last reported using — empty until its first
+	// POST /v1/firewall-status (internal/agent's sendFirewallStatus).
+	FirewallBackend string `json:"firewall_backend"`
+	// FirewallEnforcing mirrors the agent's own enforce/dry-run mode at
+	// the moment of its last firewall status report — can lag the
+	// agent's live state if reporting has stopped (see
+	// FirewallUpdatedAt).
+	FirewallEnforcing bool `json:"firewall_enforcing"`
+	// FirewallBlockedIPs is the agent's own firewall.Backend.List()
+	// result at the moment of its last report: the addresses *this*
+	// collector's agent currently has blocked in its own rules — not
+	// the server's published blocklist, which every enrolled agent
+	// merges in and isn't specific to any one collector.
+	FirewallBlockedIPs []string   `gorm:"type:text;serializer:json" json:"firewall_blocked_ips"`
+	FirewallUpdatedAt  *time.Time `json:"firewall_updated_at"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 
 	User      User       `json:"user,omitempty"`
 	Incidents []Incident `json:"incidents,omitempty"`

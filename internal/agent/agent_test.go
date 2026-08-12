@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -323,6 +324,61 @@ func TestAgent_SendHeartbeat_FailureLogsWarn(t *testing.T) {
 
 	if !hasTag(*logs, "warn") {
 		t.Errorf("expected a 'warn' log line on heartbeat failure, got: %v", *logs)
+	}
+}
+
+func TestAgent_SendFirewallStatus_Success_ReportsBackendAndBlockedIPs(t *testing.T) {
+	var gotPath string
+	var gotBody firewallStatusPayload
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+			t.Errorf("decode request body: %v", err)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer ts.Close()
+
+	a, _, fw, logs := newTestAgent(t, true)
+	fw.blocked = []firewall.Target{{Addr: netip.MustParsePrefix("203.0.113.44/32")}}
+	u := NewUploader(nil, Enrollment{ServerURL: ts.URL, Token: "t"})
+	u.Client = ts.Client()
+	a.Uploader = u
+
+	a.sendFirewallStatus(context.Background())
+
+	if len(*logs) != 0 {
+		t.Errorf("expected a successful firewall status upload to log nothing, got: %v", *logs)
+	}
+	if gotPath != "/v1/firewall-status" {
+		t.Errorf("path = %q, want /v1/firewall-status", gotPath)
+	}
+	if gotBody.Backend != "fake" {
+		t.Errorf("Backend = %q, want fake", gotBody.Backend)
+	}
+	if !gotBody.Enforcing {
+		t.Error("expected Enforcing to be true (agent configured with enforce=true)")
+	}
+	if len(gotBody.BlockedIPs) != 1 || gotBody.BlockedIPs[0] != "203.0.113.44" {
+		t.Errorf("BlockedIPs = %v, want [203.0.113.44]", gotBody.BlockedIPs)
+	}
+}
+
+func TestAgent_SendFirewallStatus_FailureLogsWarn(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	a, _, _, logs := newTestAgent(t, false)
+	u := NewUploader(nil, Enrollment{ServerURL: ts.URL, Token: "t"})
+	u.Client = ts.Client()
+	a.Uploader = u
+
+	a.sendFirewallStatus(context.Background())
+
+	if !hasTag(*logs, "warn") {
+		t.Errorf("expected a 'warn' log line on firewall status upload failure, got: %v", *logs)
 	}
 }
 

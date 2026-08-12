@@ -138,6 +138,28 @@ func (s *CollectorService) RecordHeartbeat(collectorID uint) error {
 	return s.db.Model(&models.Collector{}).Where("id = ?", collectorID).Update("last_heartbeat", &now).Error
 }
 
+// RecordFirewallStatus persists an agent's latest firewall.Backend
+// snapshot — called on every POST /v1/firewall-status (or, for the
+// in-process local agent, directly from internal/server/localagent.go,
+// no HTTP hop). Unlike incidents, this always overwrites in place:
+// only the most recent snapshot is kept, there is no history. Select
+// forces every listed field to be written even when zero
+// (enforcing=false, an empty blockedIPs) — GORM's default Updates(struct)
+// silently skips zero-valued fields, which would leave a stale
+// "enforcing" or blocked-IP list behind exactly when it flips off.
+func (s *CollectorService) RecordFirewallStatus(collectorID uint, backend string, enforcing bool, blockedIPs []string) error {
+	now := time.Now()
+	update := models.Collector{
+		FirewallBackend:    backend,
+		FirewallEnforcing:  enforcing,
+		FirewallBlockedIPs: blockedIPs,
+		FirewallUpdatedAt:  &now,
+	}
+	return s.db.Model(&models.Collector{}).Where("id = ?", collectorID).
+		Select("FirewallBackend", "FirewallEnforcing", "FirewallBlockedIPs", "FirewallUpdatedAt").
+		Updates(update).Error
+}
+
 // resolveIPAddress returns the IPAddress row for ipAddress, creating it
 // (and its Location, via enrichment) on first sight.
 func (s *CollectorService) resolveIPAddress(ipAddress string) (*models.IPAddress, error) {

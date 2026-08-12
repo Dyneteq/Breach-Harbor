@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -55,6 +56,55 @@ func TestHeartbeat_Success(t *testing.T) {
 	}
 	if gotAuth != "Bearer t" {
 		t.Errorf("Authorization = %q, want %q", gotAuth, "Bearer t")
+	}
+}
+
+func TestSendFirewallStatus_Success(t *testing.T) {
+	var gotAuth, gotMethod, gotPath string
+	var gotBody firewallStatusPayload
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+			t.Errorf("decode request body: %v", err)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer ts.Close()
+
+	u := NewUploader(newTestStore(t), Enrollment{ServerURL: ts.URL, Token: "t"})
+	u.Client = ts.Client()
+
+	err := u.SendFirewallStatus(context.Background(), "nftables", true, []string{"203.0.113.44", "198.51.100.1"})
+	if err != nil {
+		t.Fatalf("SendFirewallStatus: %v", err)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %q, want POST", gotMethod)
+	}
+	if gotPath != "/v1/firewall-status" {
+		t.Errorf("path = %q, want /v1/firewall-status", gotPath)
+	}
+	if gotAuth != "Bearer t" {
+		t.Errorf("Authorization = %q, want %q", gotAuth, "Bearer t")
+	}
+	if gotBody.Backend != "nftables" || !gotBody.Enforcing || len(gotBody.BlockedIPs) != 2 {
+		t.Errorf("request body = %+v, want backend=nftables enforcing=true 2 blocked IPs", gotBody)
+	}
+}
+
+func TestSendFirewallStatus_ServerError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	u := NewUploader(newTestStore(t), Enrollment{ServerURL: ts.URL, Token: "t"})
+	u.Client = ts.Client()
+
+	if err := u.SendFirewallStatus(context.Background(), "nftables", false, nil); err == nil {
+		t.Fatal("expected an error when the server returns 500")
 	}
 }
 

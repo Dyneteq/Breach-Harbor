@@ -48,6 +48,36 @@
                         </div>
                     </div>
 
+                    {{if .FirewallBackend}}
+                    <div class="mb-3 pt-3 border-top">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label small text-muted mb-0">
+                                <i class="fas fa-fire me-1"></i>Firewall
+                            </label>
+                            <div>
+                                <span class="badge bg-light text-dark border me-1">{{.FirewallBackend}}</span>
+                                {{if .FirewallEnforcing}}
+                                <span class="badge bg-danger">Enforcing</span>
+                                {{else}}
+                                <span class="badge bg-warning text-dark">Dry run</span>
+                                {{end}}
+                            </div>
+                        </div>
+                        <div class="small text-muted">
+                            {{len .FirewallBlockedIPs}} address{{if ne (len .FirewallBlockedIPs) 1}}es{{end}} currently blocked
+                            {{if .FirewallUpdatedAt}}&middot; updated {{.FirewallUpdatedAt.Format "15:04:05"}}{{end}}
+                        </div>
+                        {{if .FirewallBlockedIPs}}
+                        <details class="mt-1">
+                            <summary class="small text-primary" style="cursor:pointer;">Show blocked addresses</summary>
+                            <div class="small font-monospace mt-1" style="max-height:120px; overflow-y:auto;">
+                                {{range .FirewallBlockedIPs}}{{.}}<br>{{end}}
+                            </div>
+                        </details>
+                        {{end}}
+                    </div>
+                    {{end}}
+
                     <div class="d-flex justify-content-between">
                         <small class="text-muted">
                             Created: {{.CreatedAt.Format "Jan 2, 2006"}}

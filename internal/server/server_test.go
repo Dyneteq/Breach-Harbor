@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -72,6 +73,52 @@ func TestHandleObservations_RequiresValidToken(t *testing.T) {
 	srv := newTestServer(t)
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/observations", nil)
+	req.Header.Set("Authorization", "Bearer not-a-real-token")
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("code = %d, want 401", rec.Code)
+	}
+}
+
+func TestHandleFirewallStatus_PersistsSnapshot(t *testing.T) {
+	srv := newTestServer(t)
+	collector, token := createTestUserAndCollector(t, srv, "web-1")
+
+	body := strings.NewReader(`{"backend":"nftables","enforcing":true,"blocked_ips":["203.0.113.44","198.51.100.1"]}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/firewall-status", body)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("code = %d, want 204; body=%s", rec.Code, rec.Body.String())
+	}
+
+	got, err := srv.collectorService.GetCollectorByID(collector.ID)
+	if err != nil {
+		t.Fatalf("GetCollectorByID: %v", err)
+	}
+	if got.FirewallBackend != "nftables" {
+		t.Errorf("FirewallBackend = %q, want nftables", got.FirewallBackend)
+	}
+	if !got.FirewallEnforcing {
+		t.Error("expected FirewallEnforcing to be true")
+	}
+	if len(got.FirewallBlockedIPs) != 2 {
+		t.Errorf("FirewallBlockedIPs = %v, want 2 entries", got.FirewallBlockedIPs)
+	}
+	if got.FirewallUpdatedAt == nil {
+		t.Error("expected FirewallUpdatedAt to be set")
+	}
+}
+
+func TestHandleFirewallStatus_RequiresValidToken(t *testing.T) {
+	srv := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/firewall-status", strings.NewReader(`{"backend":"nftables"}`))
 	req.Header.Set("Authorization", "Bearer not-a-real-token")
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)

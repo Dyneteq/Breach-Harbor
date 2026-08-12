@@ -147,6 +147,48 @@ func (u *Uploader) Heartbeat(ctx context.Context) error {
 	return nil
 }
 
+// firewallStatusPayload is what POST /v1/firewall-status carries: a
+// point-in-time snapshot of this agent's firewall.Backend, so the
+// dashboard can show what's actually being enforced right now, not
+// just whether the agent claims to be in enforce mode.
+type firewallStatusPayload struct {
+	Backend    string   `json:"backend"`
+	Enforcing  bool     `json:"enforcing"`
+	BlockedIPs []string `json:"blocked_ips"`
+}
+
+// SendFirewallStatus reports this agent's firewall.Backend's current
+// state to the server: which backend, whether it's actually enforcing,
+// and which addresses it has blocked right now (its own rules, not the
+// server's published blocklist). Like Heartbeat, this is
+// fire-and-forget — no queue, no retry; the next tick sends a fresh
+// snapshot regardless of whether this one landed.
+func (u *Uploader) SendFirewallStatus(ctx context.Context, backend string, enforcing bool, blockedIPs []string) error {
+	body := firewallStatusPayload{Backend: backend, Enforcing: enforcing, BlockedIPs: blockedIPs}
+	data, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+
+	url := strings.TrimRight(u.Enrollment.ServerURL, "/") + "/v1/firewall-status"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+u.Enrollment.Token)
+
+	resp, err := u.Client.Do(req)
+	if err != nil {
+		return fmt.Errorf("firewall status: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		return fmt.Errorf("firewall status: server returned %s", resp.Status)
+	}
+	return nil
+}
+
 func (u *Uploader) RefreshBlocklist(ctx context.Context, localEntries []blocklist.Entry) ([]blocklist.Entry, error) {
 	fetched, err := blocklist.FetchAndVerify(ctx, u.Client, u.Enrollment.ServerURL, u.Enrollment.Token, u.Enrollment.PublicKey)
 	if err != nil {
