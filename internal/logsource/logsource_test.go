@@ -6,12 +6,16 @@ import (
 )
 
 func TestProbeAll_NeverPanics(t *testing.T) {
-	// This sandbox has none of these tools/files, so every source
-	// should come back Available:false with a human Detail, never a
-	// crash and never a bare Err for "just not installed."
+	// On a Linux CI sandbox, none of these tools/files are present, so
+	// every source comes back Available:false with a human Detail,
+	// never a crash and never a bare Err for "just not installed." On
+	// a real macOS host, UnifiedLog will legitimately report
+	// Available:true instead — this test only asserts the shape of
+	// the results (every source names itself; every unavailable one
+	// explains why), not that all five are unavailable everywhere.
 	results := ProbeAll(context.Background())
-	if len(results) != 4 {
-		t.Fatalf("got %d probe results, want 4", len(results))
+	if len(results) != 5 {
+		t.Fatalf("got %d probe results, want 5", len(results))
 	}
 	for _, r := range results {
 		if r.Source == "" {

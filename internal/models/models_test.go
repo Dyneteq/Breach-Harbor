@@ -70,7 +70,7 @@ func TestIncidentMetadataRoundTrip(t *testing.T) {
 	if err := db.Create(ip).Error; err != nil {
 		t.Fatalf("create ip address: %v", err)
 	}
-	collector := &Collector{Name: "test-collector", IP: "203.0.113.1", Token: "deadbeef", UserID: user.ID}
+	collector := &Collector{Name: "test-collector", IP: "203.0.113.1", TokenHash: "deadbeef", UserID: user.ID}
 	if err := db.Create(collector).Error; err != nil {
 		t.Fatalf("create collector: %v", err)
 	}

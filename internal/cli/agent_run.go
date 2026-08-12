@@ -38,11 +38,11 @@ func runAgentRun(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	dataDir := fs.String("data-dir", agent.DefaultDataDir(), "where the agent stores its local state")
 	enforce := fs.Bool("enforce", false, "block for real instead of dry-run reporting")
 	sourcesFlag := fs.String("sources", "", "comma-separated source names to restrict to (default: all detected)")
-	server := fs.String("server", "", "server URL to enroll with (not implemented in this build yet — standalone only)")
+	server := fs.String("server", "", "informational only — actual enrollment is `breachharbor agent enroll <url> --token <token>`, run once beforehand")
 	feedFlag := fs.String("feed", "", "comma-separated provider=on|off overrides, e.g. spamhaus=off")
 	abuseIPDBKey := fs.String("abuseipdb-key", "", "AbuseIPDB API key (enables the abuseipdb feed)")
 	refresh := fs.Duration("refresh", 15*time.Minute, "how often to re-check feeds")
-	firewallName := fs.String("firewall", "auto", "firewall backend: nft, ipset, or auto")
+	firewallName := fs.String("firewall", "auto", "firewall backend: nft, ipset, pf, or auto")
 	jsonOut := fs.Bool("json", false, "structured JSON log lines instead of the human banner")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -78,6 +78,19 @@ func runAgentRun(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	}
 	defer st.Close()
 
+	// A persisted enrollment (from `agent enroll <url> --token`) always
+	// wins over --server here — --server without a prior `agent
+	// enroll` has no token to authenticate with, so it stays a
+	// standalone-mode hint only (see the log line below).
+	var uploader *agent.Uploader
+	if enrollment, found, eerr := agent.LoadEnrollment(cfg.DataDir); eerr != nil {
+		printErr(stderr, fail(eerr, "check the enrollment file, or re-run `breachharbor agent enroll`"))
+		return 1
+	} else if found {
+		uploader = agent.NewUploader(st, enrollment)
+		cfg.Server = enrollment.ServerURL
+	}
+
 	fw, fwErr := firewall.Detect(ctx, cfg.Firewall)
 	if fwErr != nil {
 		fw = unavailableBackend{err: fwErr}
@@ -100,12 +113,16 @@ func runAgentRun(ctx context.Context, args []string, stdout, stderr io.Writer) i
 		}
 		fmt.Fprintln(stdout, msg)
 	}
+	if uploader != nil {
+		uploader.Logf = a.Logf
+		a.Uploader = uploader
+	}
 
 	if !cfg.JSON {
-		printAgentRunBanner(ctx, stdout, cfg, fw, sources)
+		printAgentRunBanner(ctx, stdout, cfg, fw, sources, uploader != nil)
 	}
-	if cfg.Server != "" {
-		a.Logf("[%s] --server: not implemented in this build yet (coming in M2) — running standalone", ts(time.Now()))
+	if uploader == nil && *server != "" {
+		a.Logf("[%s] --server was given but this agent isn't enrolled — run `breachharbor agent enroll %s --token <token>` first; running standalone for now", ts(time.Now()), *server)
 	}
 
 	if err := a.Run(ctx); err != nil && ctx.Err() == nil {
@@ -115,7 +132,7 @@ func runAgentRun(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	return 0
 }
 
-func printAgentRunBanner(ctx context.Context, stdout io.Writer, cfg agent.Config, fw firewall.Backend, sources []logsource.Source) {
+func printAgentRunBanner(ctx context.Context, stdout io.Writer, cfg agent.Config, fw firewall.Backend, sources []logsource.Source, enrolled bool) {
 	v := version.Get()
 	fmt.Fprintf(stdout, "BREACH::HARBOR agent %s (%s/%s, commit %s)\n\n", v.Version, runtime.GOOS, runtime.GOARCH, v.Commit)
 
@@ -151,8 +168,8 @@ func printAgentRunBanner(ctx context.Context, stdout io.Writer, cfg agent.Config
 
 	depth, _ := store.ReadQueueDepth(cfg.DataDir)
 	serverLine := "standalone mode, no server enrolled"
-	if cfg.Server != "" {
-		serverLine = "enrollment requested but not implemented in this build yet — standalone"
+	if enrolled {
+		serverLine = fmt.Sprintf("enrolled with %s", cfg.Server)
 	}
 	fmt.Fprintf(stdout, "[%s] local queue: %d pending observations (%s)\n", ts(time.Now()), depth, serverLine)
 }

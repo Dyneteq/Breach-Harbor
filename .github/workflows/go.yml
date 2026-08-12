@@ -44,6 +44,8 @@ jobs:
             goarch: arm64
           - goos: darwin
             goarch: arm64
+          - goos: openbsd
+            goarch: amd64
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

@@ -117,6 +117,13 @@ func firewallChecks(ctx context.Context) []doctorCheck {
 	} else {
 		checks = append(checks, doctorCheck{Name: "", Status: "ok", Detail: "iptables/ipset detected as fallback"})
 	}
+	if runtime.GOOS == "darwin" || runtime.GOOS == "openbsd" {
+		if err := firewall.NewPF(nil).Available(ctx); err != nil {
+			checks = append(checks, doctorCheck{Name: "", Status: "skip", Detail: "pf: not available (" + shortErr(err) + ")"})
+		} else {
+			checks = append(checks, doctorCheck{Name: "", Status: "ok", Detail: "pf detected (pfctl)"})
+		}
+	}
 	return checks
 }
 

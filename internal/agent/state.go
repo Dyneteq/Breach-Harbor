@@ -47,7 +47,14 @@ func LoadState(dataDir string) (State, error) {
 	return s, nil
 }
 
-// SaveState writes state atomically (write-to-temp, then rename).
+// SaveState writes state atomically (write-to-temp, then rename). The
+// temp file gets a unique name per call (via os.CreateTemp) rather
+// than a fixed "agent-state.json.tmp" — internal/server's local-agent
+// manager can call this concurrently with the same agent process's
+// own startup write (Agent.Run sets State.PID before entering its
+// loop), and a shared tmp name let one writer's rename race another's,
+// occasionally leaving the loser to rename a file that no longer
+// existed.
 func SaveState(dataDir string, s State) error {
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return fmt.Errorf("create data directory %s: %w", dataDir, err)
@@ -56,9 +63,23 @@ func SaveState(dataDir string, s State) error {
 	if err != nil {
 		return err
 	}
-	tmp := statePath(dataDir) + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+	tmp, err := os.CreateTemp(dataDir, "agent-state.*.tmp")
+	if err != nil {
+		return fmt.Errorf("create temp state file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
 		return err
 	}
-	return os.Rename(tmp, statePath(dataDir))
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := os.Rename(tmpPath, statePath(dataDir)); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	return nil
 }

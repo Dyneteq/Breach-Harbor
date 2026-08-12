@@ -24,6 +24,21 @@ func NewWebHandler(authService *services.AuthService, collectorService *services
 	}
 }
 
+// setAuthCookie sets auth_token with SameSite=Strict — every
+// state-changing /api/web route (including the local-agent
+// start/stop/enforce endpoints in internal/server) authenticates via
+// this cookie (middleware.bearerToken's header-then-cookie fallback),
+// and none of them carry a separate CSRF token. SameSite=Strict is
+// what actually closes that gap: the browser won't attach this cookie
+// to any cross-site request, so a page on another origin can't ride a
+// logged-in user's session to (for example) flip the local agent into
+// enforcing. Kept as one helper rather than repeating the flag at each
+// call site so it can't quietly drift back to the default.
+func setAuthCookie(c *gin.Context, token string) {
+	c.SetSameSite(http.SameSiteStrictMode)
+	c.SetCookie("auth_token", token, 3600*24, "/", "", false, true) // 24 hours
+}
+
 func (h *WebHandler) LoginPage(c *gin.Context) {
 	c.HTML(http.StatusOK, "login.html", gin.H{
 		"title": "Login - BREACH::HARBOR",
@@ -54,6 +69,27 @@ func (h *WebHandler) DashboardPage(c *gin.Context) {
 	c.HTML(http.StatusOK, "dashboard.html", gin.H{
 		"title": "Dashboard - BREACH::HARBOR",
 		"stats": stats,
+	})
+}
+
+func (h *WebHandler) ProfilePage(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.Redirect(http.StatusTemporaryRedirect, "/login")
+		return
+	}
+
+	user, err := h.authService.GetUserByID(userID.(uint))
+	if err != nil {
+		c.HTML(http.StatusNotFound, "error.html", gin.H{
+			"error": "Account not found",
+		})
+		return
+	}
+
+	c.HTML(http.StatusOK, "profile.html", gin.H{
+		"title": "Profile - BREACH::HARBOR",
+		"user":  user,
 	})
 }
 
@@ -95,6 +131,39 @@ func (h *WebHandler) IncidentsPage(c *gin.Context) {
 
 	c.HTML(http.StatusOK, "incidents.html", gin.H{
 		"title":     "Incidents - BREACH::HARBOR",
+		"incidents": incidents,
+	})
+}
+
+// CollectorIncidentsPage backs collectors.html's card click-through
+// (window.location = '/collectors/{name}/incidents') — previously
+// unrouted, so it fell through to gin's JSON 404 instead of a page.
+func (h *WebHandler) CollectorIncidentsPage(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.Redirect(http.StatusTemporaryRedirect, "/login")
+		return
+	}
+
+	name := c.Param("name")
+	collector, err := h.collectorService.GetCollectorByName(userID.(uint), name)
+	if err != nil {
+		c.HTML(http.StatusNotFound, "error.html", gin.H{
+			"error": "Collector not found",
+		})
+		return
+	}
+
+	incidents, err := h.collectorService.GetIncidentsByCollectorName(userID.(uint), name)
+	if err != nil {
+		c.HTML(http.StatusInternalServerError, "error.html", gin.H{
+			"error": "Failed to load incidents",
+		})
+		return
+	}
+
+	c.HTML(http.StatusOK, "incidents.html", gin.H{
+		"title":     collector.Name + " Incidents - BREACH::HARBOR",
 		"incidents": incidents,
 	})
 }
@@ -195,7 +264,7 @@ func (h *WebHandler) HandleLogin(c *gin.Context) {
 	}
 
 	// Set authentication cookie
-	c.SetCookie("auth_token", token, 3600*24, "/", "", false, true) // 24 hours
+	setAuthCookie(c, token)
 
 	// Redirect to dashboard
 	c.Header("HX-Redirect", "/dashboard")
@@ -255,7 +324,7 @@ func (h *WebHandler) HandleRegister(c *gin.Context) {
 	}
 
 	// Set authentication cookie
-	c.SetCookie("auth_token", token, 3600*24, "/", "", false, true) // 24 hours
+	setAuthCookie(c, token)
 
 	// Redirect to dashboard
 	c.Header("HX-Redirect", "/dashboard")
@@ -285,7 +354,7 @@ func (h *WebHandler) HandleCreateCollector(c *gin.Context) {
 		return
 	}
 
-	collector, err := h.collectorService.CreateCollector(userID.(uint), name, ip)
+	collector, token, err := h.collectorService.CreateCollector(userID.(uint), name, ip)
 	if err != nil {
 		c.HTML(http.StatusBadRequest, "collectors.html", gin.H{
 			"title": "Collectors - BREACH::HARBOR",
@@ -300,26 +369,28 @@ func (h *WebHandler) HandleCreateCollector(c *gin.Context) {
 		collectors = []models.Collector{}
 	}
 
-	// Return success and redirect
-	c.Header("HX-Redirect", "/collectors")
+	// The plaintext token is only ever available right here, at
+	// creation (the database only stores its hash) — render it inline
+	// instead of the old HX-Redirect, which would have discarded it.
 	c.HTML(http.StatusOK, "collectors.html", gin.H{
-		"title":      "Collectors - BREACH::HARBOR",
-		"collectors": collectors,
-		"success":    "Collector created successfully!",
+		"title":            "Collectors - BREACH::HARBOR",
+		"collectors":       collectors,
+		"success":          "Collector created successfully! Copy its token now — it won't be shown again.",
+		"newToken":         token,
+		"newCollectorName": collector.Name,
 	})
-
-	_ = collector // Use the collector variable to avoid compiler warning
 }
 
 func (h *WebHandler) HandleDeleteCollector(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	collectorName := c.Param("name")
 
-	// Here you would implement the delete logic
-	// For now, just redirect back to collectors page
-	c.Header("HX-Redirect", "/collectors")
-	c.Status(http.StatusOK)
+	if err := h.collectorService.DeleteCollector(userID.(uint), collectorName); err != nil {
+		c.String(http.StatusNotFound, "")
+		return
+	}
 
-	_ = userID // Use variables to avoid compiler warnings
-	_ = collectorName
+	// The delete button targets this card with hx-swap="outerHTML" —
+	// an empty 200 response removes it from the page.
+	c.Status(http.StatusOK)
 }

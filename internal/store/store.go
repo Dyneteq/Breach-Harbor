@@ -7,6 +7,8 @@ package store
 import (
 	"net/netip"
 	"time"
+
+	"github.com/Dyneteq/Breach-Harbor/internal/blocklist"
 )
 
 // Offender is one IP the agent has observed and scored. Score is the
@@ -53,7 +55,10 @@ type AgentStore interface {
 
 	Close() error
 
-	// SaveBlocklist/LoadBlocklist land in M2 once internal/blocklist's
-	// Blocklist type exists — a standalone M1 agent only needs its own
-	// offender list, no blocklist persistence yet.
+	// SaveBlocklist persists the full signed blocklist (not just its
+	// entries) so a later re-verify is possible without re-fetching —
+	// LoadBlocklist reports found=false on a fresh data dir with
+	// nothing cached yet, never an error.
+	SaveBlocklist(bl blocklist.SignedBlocklist) error
+	LoadBlocklist() (bl blocklist.SignedBlocklist, found bool, err error)
 }

@@ -4,11 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{if .title}}{{.title}}{{else}}BREACH::HARBOR{{end}}</title>
-    
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Barlow+Condensed:wght@400;500;600&family=Barlow:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="/static/css/main.css" rel="stylesheet">
-    
+
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </head>
@@ -19,11 +23,11 @@
             <a class="navbar-brand fw-bold" href="/dashboard">
                 <i class="fas fa-shield-alt me-2"></i>BREACH::HARBOR
             </a>
-            
+
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            
+
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
@@ -47,7 +51,7 @@
                         </a>
                     </li>
                 </ul>
-                
+
                 <ul class="navbar-nav">
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -75,89 +79,83 @@
         </div>
     </div>
 
-    <!-- Statistics Cards -->
-    <div class="row mb-4">
-        <div class="col-xl-3 col-md-6 mb-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <div class="bg-danger bg-opacity-10 rounded p-3">
-                                <i class="fas fa-exclamation-triangle text-danger fs-4"></i>
-                            </div>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="text-muted small">Total Incidents</div>
-                            <div class="h4 fw-bold mb-0">{{.stats.TotalIncidents}}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6 mb-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <div class="bg-warning bg-opacity-10 rounded p-3">
-                                <i class="fas fa-clock text-warning fs-4"></i>
-                            </div>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="text-muted small">Last 24 Hours</div>
-                            <div class="h4 fw-bold mb-0">{{.stats.Last24HourIncidents}}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6 mb-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <div class="bg-info bg-opacity-10 rounded p-3">
-                                <i class="fas fa-network-wired text-info fs-4"></i>
-                            </div>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="text-muted small">Unique IP Addresses</div>
-                            <div class="h4 fw-bold mb-0">{{.stats.TotalIPAddresses}}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6 mb-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <div class="bg-success bg-opacity-10 rounded p-3">
-                                <i class="fas fa-satellite-dish text-success fs-4"></i>
-                            </div>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="text-muted small">Active Collectors</div>
-                            <div class="h4 fw-bold mb-0">{{.stats.TotalCollectors}}</div>
-                        </div>
+    <!-- Local Agent -->
+    <div class="row">
+        <div class="col-12">
+            <div id="local-agent-panel" hx-get="/api/web/local-agent" hx-trigger="load" hx-swap="outerHTML">
+                <div class="card mb-4">
+                    <div class="card-body text-muted">
+                        <i class="fas fa-spinner fa-spin me-2"></i>Loading local agent status&hellip;
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Statistics -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="stat-grid">
+                <div class="stat-tile">
+                    <div class="stat-label">TOTAL INCIDENTS</div>
+                    <div class="stat-value">{{.stats.TotalIncidents}}</div>
+                    <div class="stat-note">All collectors &middot; lifetime</div>
+                </div>
+                <div class="stat-tile {{if gt .stats.Last24HourIncidents 0}}stat-danger{{else}}stat-accent{{end}}">
+                    <div class="stat-label">NEW &middot; 24H</div>
+                    <div class="stat-value">{{.stats.Last24HourIncidents}}</div>
+                    <div class="stat-note">Rolling 24-hour window</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-label">IP ADDRESSES</div>
+                    <div class="stat-value">{{.stats.TotalIPAddresses}}</div>
+                    <div class="stat-note">Unique sources observed</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-label">COLLECTORS</div>
+                    <div class="stat-value">{{.stats.TotalCollectors}}</div>
+                    <div class="stat-note">Registered agents</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Incident volume, last 24h -->
+    {{if .stats.HourlyIncidents}}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>Incident Volume &middot; Last 24h
+                    </h5>
+                    <span class="bh-live bh-blink">&#9679; LIVE</span>
+                </div>
+                <div class="card-body">
+                    <div class="hour-track">
+                        {{range .stats.HourlyIncidents}}
+                        <div class="hour-bar" style="height: {{.Count}}px;" title="{{.Count}} incident(s) &middot; {{.Hour}}:00"></div>
+                        {{end}}
+                    </div>
+                    <div class="d-flex justify-content-between mt-2">
+                        <small class="text-muted">24h ago</small>
+                        <small class="text-muted">now</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{end}}
+
     <div class="row">
         <!-- Recent Incidents -->
         <div class="col-lg-8 mb-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-list me-2"></i>Recent Incidents
                     </h5>
+                    {{if .stats.RecentIncidents}}<span class="bh-live bh-blink">&#9679; LIVE</span>{{end}}
                 </div>
                 <div class="card-body p-0">
                     {{if .stats.RecentIncidents}}
@@ -205,7 +203,7 @@
                     </div>
                     {{end}}
                 </div>
-                <div class="card-footer bg-white">
+                <div class="card-footer">
                     <a href="/incidents" class="btn btn-outline-primary btn-sm">
                         View All Incidents <i class="fas fa-arrow-right ms-1"></i>
                     </a>
@@ -215,21 +213,23 @@
 
         <!-- Geographic Distribution -->
         <div class="col-lg-4 mb-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white">
+            <div class="card h-100">
+                <div class="card-header">
                     <h5 class="card-title mb-0">
-                        <i class="fas fa-globe me-2"></i>Top Countries
+                        <i class="fas fa-globe me-2"></i>Top Origins
                     </h5>
                 </div>
                 <div class="card-body">
                     {{if .stats.IncidentsByCountry}}
                     {{range .stats.IncidentsByCountry}}
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div class="d-flex align-items-center">
-                            <span class="flag-icon flag-icon-{{.CountryCode | lower}} me-2"></span>
-                            <span>{{.CountryName}}</span>
+                    <div class="origin-row">
+                        <div class="origin-row-head">
+                            <span class="d-flex align-items-center">
+                                <span class="flag-icon me-2"></span>
+                                {{.CountryName}}
+                            </span>
+                            <span class="origin-count">{{.Count}}</span>
                         </div>
-                        <span class="badge bg-primary">{{.Count}}</span>
                     </div>
                     {{end}}
                     {{else}}

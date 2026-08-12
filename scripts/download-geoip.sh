@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # BREACH::HARBOR - MaxMind GeoIP Database Download Script
-# This script automatically downloads the latest GeoLite2-City database
+# Downloads the latest GeoLite2-City and GeoLite2-ASN databases (the
+# ASN edition powers the M2 ISP/ASN/datacenter enrichment in
+# internal/services/location.go — same free MaxMind license key).
 
 set -e
 
@@ -16,7 +18,6 @@ NC='\033[0m' # No Color
 MAXMIND_LICENSE_KEY="$1"
 DATA_DIR="./data"
 DOWNLOAD_URL="https://download.maxmind.com/app/geoip_download"
-DB_EDITION="GeoLite2-City"
 DB_SUFFIX="tar.gz"
 TEMP_DIR=$(mktemp -d)
 
@@ -56,66 +57,68 @@ fi
 print_status "Creating data directory..."
 mkdir -p "$DATA_DIR"
 
-# Download the database
-print_status "Downloading GeoLite2-City database..."
-DOWNLOAD_FILE="$TEMP_DIR/${DB_EDITION}.${DB_SUFFIX}"
+# download_edition fetches one GeoLite2 edition and installs it as
+# $DATA_DIR/<dest_name>.mmdb.
+download_edition() {
+    local edition_id="$1"
+    local dest_name="$2"
+    local download_file="$TEMP_DIR/${edition_id}.${DB_SUFFIX}"
+    local extract_dir="$TEMP_DIR/${edition_id}"
 
-if command -v curl >/dev/null 2>&1; then
-    curl -L "$DOWNLOAD_URL?edition_id=$DB_EDITION&license_key=$MAXMIND_LICENSE_KEY&suffix=$DB_SUFFIX" \
-         -o "$DOWNLOAD_FILE" \
-         --fail \
-         --silent \
-         --show-error
-elif command -v wget >/dev/null 2>&1; then
-    wget "$DOWNLOAD_URL?edition_id=$DB_EDITION&license_key=$MAXMIND_LICENSE_KEY&suffix=$DB_SUFFIX" \
-         -O "$DOWNLOAD_FILE" \
-         --quiet
-else
-    print_error "Neither curl nor wget found. Please install one of them."
-    exit 1
-fi
+    print_status "Downloading ${edition_id} database..."
+    mkdir -p "$extract_dir"
 
-# Verify download
-if [ ! -f "$DOWNLOAD_FILE" ]; then
-    print_error "Failed to download GeoLite2-City database"
-    exit 1
-fi
+    if command -v curl >/dev/null 2>&1; then
+        curl -L "$DOWNLOAD_URL?edition_id=$edition_id&license_key=$MAXMIND_LICENSE_KEY&suffix=$DB_SUFFIX" \
+             -o "$download_file" \
+             --fail \
+             --silent \
+             --show-error
+    elif command -v wget >/dev/null 2>&1; then
+        wget "$DOWNLOAD_URL?edition_id=$edition_id&license_key=$MAXMIND_LICENSE_KEY&suffix=$DB_SUFFIX" \
+             -O "$download_file" \
+             --quiet
+    else
+        print_error "Neither curl nor wget found. Please install one of them."
+        exit 1
+    fi
 
-# Extract the database
-print_status "Extracting database..."
-cd "$TEMP_DIR"
-tar -xzf "$DOWNLOAD_FILE"
+    if [ ! -f "$download_file" ]; then
+        print_error "Failed to download ${edition_id} database"
+        exit 1
+    fi
 
-# Find the .mmdb file
-MMDB_FILE=$(find . -name "*.mmdb" -type f | head -n 1)
+    print_status "Extracting ${edition_id}..."
+    tar -xzf "$download_file" -C "$extract_dir"
 
-if [ -z "$MMDB_FILE" ]; then
-    print_error "Could not find .mmdb file in downloaded archive"
-    exit 1
-fi
+    local mmdb_file
+    mmdb_file=$(find "$extract_dir" -name "*.mmdb" -type f | head -n 1)
+    if [ -z "$mmdb_file" ]; then
+        print_error "Could not find .mmdb file in ${edition_id} archive"
+        exit 1
+    fi
 
-# Copy to data directory
-print_status "Installing database..."
-cp "$MMDB_FILE" "$DATA_DIR/GeoLite2-City.mmdb"
+    print_status "Installing ${dest_name}.mmdb..."
+    cp "$mmdb_file" "$DATA_DIR/${dest_name}.mmdb"
+    chmod 644 "$DATA_DIR/${dest_name}.mmdb"
 
-# Verify installation
-if [ -f "$DATA_DIR/GeoLite2-City.mmdb" ]; then
-    FILE_SIZE=$(du -h "$DATA_DIR/GeoLite2-City.mmdb" | cut -f1)
-    print_success "GeoLite2-City database installed successfully!"
-    print_success "Database size: $FILE_SIZE"
-    print_success "Location: $DATA_DIR/GeoLite2-City.mmdb"
-else
-    print_error "Failed to install database"
-    exit 1
-fi
+    if [ -f "$DATA_DIR/${dest_name}.mmdb" ]; then
+        local file_size
+        file_size=$(du -h "$DATA_DIR/${dest_name}.mmdb" | cut -f1)
+        print_success "${dest_name}.mmdb installed (${file_size}) at $DATA_DIR/${dest_name}.mmdb"
+    else
+        print_error "Failed to install ${dest_name}.mmdb"
+        exit 1
+    fi
+}
 
-# Update permissions
-chmod 644 "$DATA_DIR/GeoLite2-City.mmdb"
+download_edition "GeoLite2-City" "GeoLite2-City"
+download_edition "GeoLite2-ASN" "GeoLite2-ASN"
 
 print_status "Database installation complete!"
-print_warning "Remember to update this database regularly as MaxMind releases updates."
-print_warning "You can run this script again to get the latest version."
+print_warning "Remember to update these databases regularly as MaxMind releases updates."
+print_warning "You can run this script again to get the latest versions."
 
 echo ""
-print_success "You can now start BREACH::HARBOR with full IP geolocation support:"
-echo "go run cmd/server/main.go"
+print_success "You can now start BREACH::HARBOR with full IP geolocation/ASN enrichment:"
+echo "breachharbor server run"

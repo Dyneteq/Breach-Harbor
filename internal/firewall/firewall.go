@@ -1,9 +1,10 @@
 // Package firewall provides a pluggable interface over the host's
 // firewall so the agent can block and unblock IP addresses without the
-// rest of the codebase caring whether nftables or iptables/ipset is in
-// use. Every Backend confines its changes to a single, clearly named
-// table/chain/set so Flush can remove exactly what this agent added
-// and never touch a rule the user created themselves.
+// rest of the codebase caring whether nftables, iptables/ipset, or
+// (on macOS/OpenBSD) pf is in use. Every Backend confines its changes
+// to a single, clearly named table/chain/set/anchor so Flush can
+// remove exactly what this agent added and never touch a rule the
+// user created themselves.
 package firewall
 
 import (

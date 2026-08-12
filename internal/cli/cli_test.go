@@ -107,15 +107,32 @@ func TestMain_Agent_UnknownSubcommand(t *testing.T) {
 	}
 }
 
-func TestMain_Agent_Enroll_StillUnimplemented(t *testing.T) {
-	// enroll is explicitly out of scope for M1 (M2 work) — every other
-	// agent subcommand is real now; see agent_*_test.go for those.
+func TestMain_Agent_Enroll_MissingArgs(t *testing.T) {
 	_, stderr, code := run("agent", "enroll")
+	if code != 2 {
+		t.Errorf("code = %d, want 2", code)
+	}
+	if !strings.Contains(stderr, "missing <url>") {
+		t.Errorf("expected a missing-URL message, got %q", stderr)
+	}
+
+	_, stderr, code = run("agent", "enroll", "https://example.com")
+	if code != 2 {
+		t.Errorf("code = %d, want 2", code)
+	}
+	if !strings.Contains(stderr, "--token is required") {
+		t.Errorf("expected a missing-token message, got %q", stderr)
+	}
+}
+
+func TestMain_Agent_Enroll_UnreachableServer(t *testing.T) {
+	dir := t.TempDir()
+	_, stderr, code := run("agent", "enroll", "http://127.0.0.1:1", "--token", "t", "--data-dir", dir)
 	if code != 1 {
 		t.Errorf("code = %d, want 1", code)
 	}
-	if !strings.Contains(stderr, "not implemented") {
-		t.Errorf("expected a clear not-implemented message, got %q", stderr)
+	if stderr == "" {
+		t.Error("expected an error message for an unreachable server")
 	}
 }
 

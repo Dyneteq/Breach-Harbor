@@ -34,8 +34,7 @@ func runAgentCmd(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	case "sources":
 		return runAgentSources(ctx, rest, stdout, stderr)
 	case "enroll":
-		fmt.Fprintf(stderr, "breachharbor agent %s: not implemented in this build yet (coming in M2)\n", sub)
-		return 1
+		return runAgentEnroll(ctx, rest, stdout, stderr)
 	case "-h", "--help", "help":
 		printAgentUsage(stdout)
 		return 0
@@ -65,7 +64,7 @@ Subcommands:
 func runAgentFlush(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("agent flush", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	firewallName := fs.String("firewall", "auto", "firewall backend: nft, ipset, or auto")
+	firewallName := fs.String("firewall", "auto", "firewall backend: nft, ipset, pf, or auto")
 	jsonOut := fs.Bool("json", false, "output as JSON")
 	yes := fs.Bool("yes", false, "actually remove rules (without this flag, only reports what would be removed)")
 	if err := fs.Parse(args); err != nil {
@@ -74,7 +73,7 @@ func runAgentFlush(ctx context.Context, args []string, stdout, stderr io.Writer)
 
 	backend, err := firewall.Detect(ctx, *firewallName)
 	if err != nil {
-		printErr(stderr, fail(err, "install nftables or iptables+ipset, then retry"))
+		printErr(stderr, fail(err, "install nftables or iptables+ipset (Linux), or use pfctl (macOS/OpenBSD), then retry"))
 		return 1
 	}
 
