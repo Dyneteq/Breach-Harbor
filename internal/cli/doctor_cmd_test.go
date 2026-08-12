@@ -7,8 +7,8 @@ import (
 
 func TestLogSourceChecks_OneRowPerSource(t *testing.T) {
 	checks := logSourceChecks(context.Background())
-	if len(checks) != 4 {
-		t.Fatalf("got %d checks, want 4 (one per logsource.Source)", len(checks))
+	if len(checks) != 5 {
+		t.Fatalf("got %d checks, want 5 (one per logsource.Source)", len(checks))
 	}
 	if checks[0].Name != "Log sources" {
 		t.Errorf("checks[0].Name = %q, want %q", checks[0].Name, "Log sources")

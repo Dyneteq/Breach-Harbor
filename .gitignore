@@ -35,6 +35,8 @@ go.work
 # Log files
 *.log
 logs/
+# ...except committed test fixtures that happen to end in .log
+!internal/logsource/testdata/*.log
 
 # MaxMind database files (download separately)
 data/*.mmdb

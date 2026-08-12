@@ -1,0 +1,4 @@
+Filtering the log data using "process == \"sshd\""
+{"timestamp":"2024-01-15 10:23:45.123456-0800","process":"sshd","eventMessage":"Failed password for root from 203.0.113.44 port 51234 ssh2"}
+{"timestamp":"2024-01-15 10:23:50.000000-0800","process":"sshd","eventMessage":"Accepted password for chris from 198.51.100.20 port 51300 ssh2"}
+{"timestamp":"2024-01-15 10:24:00.500000-0800","process":"sshd","eventMessage":"Failed password for invalid user admin from 198.51.100.9 port 40120 ssh2"}

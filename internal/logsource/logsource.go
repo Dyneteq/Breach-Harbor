@@ -1,10 +1,11 @@
 // Package logsource provides pluggable observation sources for the
 // standalone agent — systemd journal, /var/log/auth.log, nginx access
-// logs, and fail2ban's own ban log. Each Source watches one thing and
-// emits Events on a channel; internal/agent turns those into scored
-// Offenders. A source that isn't present on this host reports itself
-// as unavailable via Probe rather than erroring, so a fresh install
-// with only some of these installed still works out of the box.
+// logs, fail2ban's own ban log, and (on macOS) the unified log. Each
+// Source watches one thing and emits Events on a channel;
+// internal/agent turns those into scored Offenders. A source that
+// isn't present on this host reports itself as unavailable via Probe
+// rather than erroring, so a fresh install with only some of these
+// installed still works out of the box.
 package logsource
 
 import (
@@ -78,6 +79,7 @@ func All() []Source {
 		NewJournal(""),
 		NewAuthLog(""),
 		NewNginx("", ""),
+		NewUnifiedLog(),
 	}
 }
 
