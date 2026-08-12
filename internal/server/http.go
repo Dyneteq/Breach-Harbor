@@ -58,6 +58,7 @@ func (s *Server) buildRouter() *gin.Engine {
 	agentV1.Use(middleware.CollectorAuthMiddleware(s.collectorService))
 	{
 		agentV1.POST("/enroll", s.handleEnroll)
+		agentV1.POST("/heartbeat", s.handleHeartbeat)
 		agentV1.POST("/observations", s.handleObservations)
 		agentV1.GET("/blocklist", s.handleGetBlocklist)
 	}
@@ -109,6 +110,7 @@ func (s *Server) registerWebRoutes(r *gin.Engine) {
 		webAuthed := webAPI.Group("")
 		webAuthed.Use(middleware.WebAuthMiddleware(s.authService))
 		{
+			webAuthed.GET("/collectors", webHandler.CollectorsListFragment)
 			webAuthed.POST("/collectors", webHandler.HandleCreateCollector)
 			webAuthed.DELETE("/collectors/:name", webHandler.HandleDeleteCollector)
 

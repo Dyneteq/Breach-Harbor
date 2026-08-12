@@ -31,6 +31,47 @@ func TestUploadPending_NothingQueuedIsANoop(t *testing.T) {
 	}
 }
 
+func TestHeartbeat_Success(t *testing.T) {
+	var gotAuth, gotMethod, gotPath string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer ts.Close()
+
+	u := NewUploader(newTestStore(t), Enrollment{ServerURL: ts.URL, Token: "t"})
+	u.Client = ts.Client()
+
+	if err := u.Heartbeat(context.Background()); err != nil {
+		t.Fatalf("Heartbeat: %v", err)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %q, want POST", gotMethod)
+	}
+	if gotPath != "/v1/heartbeat" {
+		t.Errorf("path = %q, want /v1/heartbeat", gotPath)
+	}
+	if gotAuth != "Bearer t" {
+		t.Errorf("Authorization = %q, want %q", gotAuth, "Bearer t")
+	}
+}
+
+func TestHeartbeat_ServerError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	u := NewUploader(newTestStore(t), Enrollment{ServerURL: ts.URL, Token: "t"})
+	u.Client = ts.Client()
+
+	if err := u.Heartbeat(context.Background()); err == nil {
+		t.Fatal("expected an error when the server returns 500")
+	}
+}
+
 func TestUploadPending_FailureDoesNotAck(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)

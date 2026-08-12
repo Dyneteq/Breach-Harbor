@@ -128,6 +128,16 @@ func (s *CollectorService) MarkEnrolled(collectorID uint) error {
 	return s.db.Model(&models.Collector{}).Where("id = ?", collectorID).Update("enrolled_at", &now).Error
 }
 
+// RecordHeartbeat updates LastHeartbeat — called on every POST
+// /v1/heartbeat, independent of whether the collector has ever
+// reported real data (that's UpdateLastOnline's job, above). This is
+// the presence signal the dashboard's Online/Error status is derived
+// from.
+func (s *CollectorService) RecordHeartbeat(collectorID uint) error {
+	now := time.Now()
+	return s.db.Model(&models.Collector{}).Where("id = ?", collectorID).Update("last_heartbeat", &now).Error
+}
+
 // resolveIPAddress returns the IPAddress row for ipAddress, creating it
 // (and its Location, via enrichment) on first sight.
 func (s *CollectorService) resolveIPAddress(ipAddress string) (*models.IPAddress, error) {

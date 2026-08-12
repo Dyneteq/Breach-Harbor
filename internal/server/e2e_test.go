@@ -106,6 +106,24 @@ func TestEndToEnd_EnrollObserveIngestPublishFetchVerifyMerge(t *testing.T) {
 	uploader := agent.NewUploader(st, enrollment)
 	uploader.Client = ts.Client()
 
+	// 2b. Heartbeat: presence, independent of whether there's any
+	// data to report yet — must move LastHeartbeat without touching
+	// LastOnline (that's real-data-only, see EnrollObserveIngest's
+	// step 1b above).
+	if err := uploader.Heartbeat(ctx); err != nil {
+		t.Fatalf("Heartbeat: %v", err)
+	}
+	heartbeatedCollector, err := srv.collectorService.GetCollectorByID(collector.ID)
+	if err != nil {
+		t.Fatalf("GetCollectorByID after heartbeat: %v", err)
+	}
+	if heartbeatedCollector.LastHeartbeat == nil {
+		t.Error("expected LastHeartbeat to be set after POST /v1/heartbeat")
+	}
+	if heartbeatedCollector.LastOnline != nil {
+		t.Error("expected LastOnline to still be nil — a heartbeat alone must not mark the collector online")
+	}
+
 	// 3. Ingest: upload drains the queue via POST /v1/observations.
 	n, err := uploader.UploadPending(ctx)
 	if err != nil {

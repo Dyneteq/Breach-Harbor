@@ -110,7 +110,33 @@ func (h *WebHandler) CollectorsPage(c *gin.Context) {
 
 	c.HTML(http.StatusOK, "collectors.html", gin.H{
 		"title":      "Collectors - BREACH::HARBOR",
-		"collectors": collectors,
+		"collectors": withStatus(collectors),
+	})
+}
+
+// CollectorsListFragment is what collectors_list.html's own
+// hx-trigger="load delay:5s, every 5s" polls (GET /api/web/collectors)
+// to keep Online/Error/Enrolled status live without a page reload —
+// same self-polling pattern as the Local Agent panel
+// (internal/server/localagent_handlers.go's renderLocalAgentPanel).
+// Renders just the list fragment, not the full page.
+func (h *WebHandler) CollectorsListFragment(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.Redirect(http.StatusTemporaryRedirect, "/login")
+		return
+	}
+
+	collectors, err := h.collectorService.GetCollectorsByUserID(userID.(uint))
+	if err != nil {
+		c.HTML(http.StatusInternalServerError, "error.html", gin.H{
+			"error": "Failed to load collectors",
+		})
+		return
+	}
+
+	c.HTML(http.StatusOK, "collectors_list.html", gin.H{
+		"collectors": withStatus(collectors),
 	})
 }
 
@@ -348,8 +374,9 @@ func (h *WebHandler) HandleCreateCollector(c *gin.Context) {
 
 	if name == "" || ip == "" {
 		c.HTML(http.StatusBadRequest, "collectors.html", gin.H{
-			"title": "Collectors - BREACH::HARBOR",
-			"error": "Name and IP address are required",
+			"title":      "Collectors - BREACH::HARBOR",
+			"collectors": withStatus(h.currentCollectorsOrEmpty(userID.(uint))),
+			"error":      "Name and IP address are required",
 		})
 		return
 	}
@@ -357,16 +384,11 @@ func (h *WebHandler) HandleCreateCollector(c *gin.Context) {
 	collector, token, err := h.collectorService.CreateCollector(userID.(uint), name, ip)
 	if err != nil {
 		c.HTML(http.StatusBadRequest, "collectors.html", gin.H{
-			"title": "Collectors - BREACH::HARBOR",
-			"error": "Failed to create collector. Name may already be in use.",
+			"title":      "Collectors - BREACH::HARBOR",
+			"collectors": withStatus(h.currentCollectorsOrEmpty(userID.(uint))),
+			"error":      "Failed to create collector. Name may already be in use.",
 		})
 		return
-	}
-
-	// Get updated collectors list
-	collectors, err := h.collectorService.GetCollectorsByUserID(userID.(uint))
-	if err != nil {
-		collectors = []models.Collector{}
 	}
 
 	// The plaintext token is only ever available right here, at
@@ -374,11 +396,23 @@ func (h *WebHandler) HandleCreateCollector(c *gin.Context) {
 	// instead of the old HX-Redirect, which would have discarded it.
 	c.HTML(http.StatusOK, "collectors.html", gin.H{
 		"title":            "Collectors - BREACH::HARBOR",
-		"collectors":       collectors,
+		"collectors":       withStatus(h.currentCollectorsOrEmpty(userID.(uint))),
 		"success":          "Collector created successfully! Copy its token now — it won't be shown again.",
 		"newToken":         token,
 		"newCollectorName": collector.Name,
 	})
+}
+
+// currentCollectorsOrEmpty is HandleCreateCollector's shared fallback
+// across all three of its response paths (validation error, create
+// error, success) — an empty slice rather than a failed reload
+// keeping the page from rendering at all.
+func (h *WebHandler) currentCollectorsOrEmpty(userID uint) []models.Collector {
+	collectors, err := h.collectorService.GetCollectorsByUserID(userID)
+	if err != nil {
+		return []models.Collector{}
+	}
+	return collectors
 }
 
 func (h *WebHandler) HandleDeleteCollector(c *gin.Context) {

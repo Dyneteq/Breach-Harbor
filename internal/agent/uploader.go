@@ -122,6 +122,31 @@ func metadataToAny(m map[string]string) map[string]interface{} {
 // failure it falls back to the last cached copy (if any), merged with
 // localEntries, and returns the failure as a non-fatal error for the
 // caller to log.
+// Heartbeat tells the server this agent is alive and reachable right
+// now — unlike UploadPending, it fires on every tick regardless of
+// whether there's anything queued, which is the whole point: a quiet
+// agent that has detected nothing still needs to show up as present,
+// not indistinguishable from a dead one. No body, no queue
+// interaction; just a bearer-token POST.
+func (u *Uploader) Heartbeat(ctx context.Context) error {
+	url := strings.TrimRight(u.Enrollment.ServerURL, "/") + "/v1/heartbeat"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+u.Enrollment.Token)
+
+	resp, err := u.Client.Do(req)
+	if err != nil {
+		return fmt.Errorf("heartbeat: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		return fmt.Errorf("heartbeat: server returned %s", resp.Status)
+	}
+	return nil
+}
+
 func (u *Uploader) RefreshBlocklist(ctx context.Context, localEntries []blocklist.Entry) ([]blocklist.Entry, error) {
 	fetched, err := blocklist.FetchAndVerify(ctx, u.Client, u.Enrollment.ServerURL, u.Enrollment.Token, u.Enrollment.PublicKey)
 	if err != nil {

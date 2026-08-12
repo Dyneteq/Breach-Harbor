@@ -18,10 +18,22 @@ import (
 )
 
 // summaryInterval is how often Run emits a "summary" line — a fixed
-// heartbeat cadence distinct from the feed/upload ticker (Config.Refresh,
+// cadence distinct from the feed/upload ticker (Config.Refresh,
 // default 15m, far too infrequent for a live-status view) and the
 // 3s state-reconcile ticker (far too chatty for a summary).
 const summaryInterval = 2 * time.Minute
+
+// heartbeatInterval is how often an enrolled agent tells the server
+// it's alive, independent of Config.Refresh (which drives feed/upload
+// syncing and defaults to 15m — far too infrequent for a "presence"
+// signal: restart an agent and you'd wait up to 15 minutes to see it
+// go green on the dashboard). The server's own online/stale threshold
+// (internal/handlers/web.go's heartbeatOnlineWindow) is a multiple of
+// this — the two constants live in different packages deliberately
+// (see internal/agent/systemd.go's doc comment on small, deliberate
+// duplication over cross-package coupling) but must be kept in sync
+// by hand if either changes.
+const heartbeatInterval = 60 * time.Second
 
 // Agent wires everything together: logsource.Sources feed Events into
 // a per-IP sliding-window score (offender.go), scored offenders are
@@ -115,6 +127,7 @@ func (a *Agent) Run(ctx context.Context) error {
 	a.refreshFeeds(ctx)
 	if a.Uploader != nil {
 		a.syncEnrollment(ctx)
+		a.sendHeartbeat(ctx)
 	}
 
 	events := make(chan logsource.Event, 256)
@@ -152,6 +165,13 @@ func (a *Agent) Run(ctx context.Context) error {
 	summaryTicker := time.NewTicker(summaryInterval)
 	defer summaryTicker.Stop()
 
+	// heartbeatTicker only ever fires anything when enrolled (a
+	// standalone agent has no server to heartbeat to) — still created
+	// unconditionally so the select loop's shape doesn't change based
+	// on enrollment state.
+	heartbeatTicker := time.NewTicker(heartbeatInterval)
+	defer heartbeatTicker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -176,7 +196,22 @@ func (a *Agent) Run(ctx context.Context) error {
 			a.reconcileState(ctx)
 		case <-summaryTicker.C:
 			a.emitSummary(time.Now())
+		case <-heartbeatTicker.C:
+			if a.Uploader != nil {
+				go a.sendHeartbeat(ctx)
+			}
 		}
+	}
+}
+
+// sendHeartbeat tells the server this agent is alive. Failures are
+// logged, never fatal — same "cache first, ask later" tolerance as
+// every other server-reachability call in this file; a heartbeat
+// that can't get through just means the dashboard shows this
+// collector as offline/error until the next one succeeds.
+func (a *Agent) sendHeartbeat(ctx context.Context) {
+	if err := a.Uploader.Heartbeat(ctx); err != nil {
+		a.emit(time.Now(), "warn", "heartbeat to %s failed: %v", a.Uploader.Enrollment.ServerURL, err)
 	}
 }
 

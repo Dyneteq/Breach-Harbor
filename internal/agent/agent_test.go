@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"net/netip"
 	"strings"
 	"testing"
@@ -283,6 +285,45 @@ func containsSubstring(lines []string, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestAgent_SendHeartbeat_Success_NoLog(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/heartbeat" {
+			t.Errorf("unexpected path %q", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer ts.Close()
+
+	a, _, _, logs := newTestAgent(t, false)
+	u := NewUploader(nil, Enrollment{ServerURL: ts.URL, Token: "t"})
+	u.Client = ts.Client()
+	a.Uploader = u
+
+	a.sendHeartbeat(context.Background())
+
+	if len(*logs) != 0 {
+		t.Errorf("expected a successful heartbeat to log nothing, got: %v", *logs)
+	}
+}
+
+func TestAgent_SendHeartbeat_FailureLogsWarn(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	a, _, _, logs := newTestAgent(t, false)
+	u := NewUploader(nil, Enrollment{ServerURL: ts.URL, Token: "t"})
+	u.Client = ts.Client()
+	a.Uploader = u
+
+	a.sendHeartbeat(context.Background())
+
+	if !hasTag(*logs, "warn") {
+		t.Errorf("expected a 'warn' log line on heartbeat failure, got: %v", *logs)
+	}
 }
 
 func TestAgent_TotalCounters_TrackSeenFlaggedBlocked(t *testing.T) {
