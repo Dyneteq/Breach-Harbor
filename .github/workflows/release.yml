@@ -64,6 +64,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4 # gh release create --generate-notes needs a git repo to diff against
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
