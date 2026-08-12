@@ -50,7 +50,7 @@ func printAgentUsage(w io.Writer) {
 
 Subcommands:
   run        Foreground. Auto-detects sources. Dry run unless --enforce.
-  install    Write/enable a systemd unit.
+  install    Write/enable a daemon (systemd on Linux, launchd on macOS).
   uninstall  Remove the service. Implies flush.
   status     What's running, watched, blocked, since when.
   top        Live top-attackers view.

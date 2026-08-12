@@ -52,6 +52,29 @@ breachharbor agent flush          # always safe: reports what would be removed
 sudo breachharbor agent flush --yes    # actually removes it
 ```
 
+## Run as a daemon
+
+```bash
+sudo breachharbor agent install     # systemd (Linux) or launchd (macOS)
+sudo breachharbor server install --listen :8080
+```
+
+Installs a service that starts at boot and restarts on crash: a systemd unit on Linux
+(`sudo systemctl status breachharbor-agent`), a LaunchDaemon on macOS (`sudo launchctl list |
+grep breachharbor`, logs at `<data-dir>/agent.log`). The agent comes up in dry run by default;
+add `--enforce` to start enforcing immediately. `breachharbor agent uninstall` removes the
+service and flushes every firewall rule it added.
+
+## Updating
+
+```bash
+breachharbor update           # installs the latest release over the running binary
+breachharbor update --check   # just report whether a newer release exists
+```
+
+Re-run with `sudo` if the binary lives in a root-owned directory (the default
+`/usr/local/bin` install does). Updates both `breachharbor` and `bh` when both are present.
+
 ## Status
 
 Being rebuilt into the CLI above, one milestone at a time:
@@ -70,7 +93,8 @@ make vet
 make fmt-check
 ```
 
-CI runs all of these plus a cross-compile check for linux/amd64, linux/arm64, darwin/arm64.
+CI runs all of these plus a cross-compile check for linux/amd64, linux/arm64, darwin/arm64,
+openbsd/amd64.
 
 ## Docker
 

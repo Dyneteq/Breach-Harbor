@@ -33,6 +33,8 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		return runDoctorCmd(ctx, args[2:], stdout, stderr)
 	case "version":
 		return runVersionCmd(ctx, args[2:], stdout, stderr)
+	case "update":
+		return runUpdateCmd(ctx, args[2:], stdout, stderr)
 	case "-h", "--help", "help":
 		printUsage(stdout)
 		return 0
@@ -51,6 +53,7 @@ Usage:
   breachharbor server <run|install|status> [flags]
   breachharbor doctor [--json]
   breachharbor version [--json]
+  breachharbor update [--check] [--version <tag>] [--json]
 
 Run 'breachharbor <command> --help' for flags on a specific command.
 `)
