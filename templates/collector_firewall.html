@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .title}}{{.title}}{{else}}BREACH::HARBOR{{end}}</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Barlow+Condensed:wght@400;500;600&family=Barlow:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/main.css" rel="stylesheet">
+
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="/dashboard">
+                <i class="fas fa-shield-alt me-2"></i>BREACH::HARBOR
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard">
+                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/collectors">
+                            <i class="fas fa-satellite-dish me-1"></i>Collectors
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/incidents">
+                            <i class="fas fa-exclamation-triangle me-1"></i>Incidents
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/ip-addresses">
+                            <i class="fas fa-network-wired me-1"></i>IP Addresses
+                        </a>
+                    </li>
+                </ul>
+
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user me-1"></i>Account
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/profile">Profile</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="logout()">Logout</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container-fluid py-4">
+        <div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="/collectors">Collectors</a></li>
+                    <li class="breadcrumb-item active">{{.firewall.Collector.Name}} &middot; Firewall</li>
+                </ol>
+            </nav>
+
+            <h1 class="h3 fw-bold">
+                <i class="fas fa-fire me-2 text-danger"></i>
+                {{.firewall.Collector.Name}} &mdash; Firewall Configuration
+            </h1>
+        </div>
+    </div>
+
+    {{if not .firewall.Collector.FirewallUpdatedAt}}
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-satellite-dish text-muted fs-1 mb-3"></i>
+            <h5 class="text-muted">No firewall report yet</h5>
+            <p class="text-muted mb-0">This collector's agent hasn't reported its firewall status yet — it reports on every heartbeat once it's running.</p>
+        </div>
+    </div>
+    {{else}}
+
+    <!-- Stat tiles -->
+    <div class="row mb-4">
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <label class="form-label small text-muted mb-1">Backend</label>
+                    <div class="fs-5 fw-bold">
+                        {{if eq .firewall.Collector.FirewallBackend "none"}}
+                        <span class="text-muted">None detected</span>
+                        {{else}}
+                        {{.firewall.Collector.FirewallBackend}}
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <label class="form-label small text-muted mb-1">Mode</label>
+                    <div class="fs-5 fw-bold">
+                        {{if eq .firewall.Collector.FirewallBackend "none"}}
+                        <span class="text-muted">&mdash;</span>
+                        {{else if .firewall.Collector.FirewallEnforcing}}
+                        <span class="text-danger">Enforcing</span>
+                        {{else}}
+                        <span class="text-warning">Dry run</span>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <label class="form-label small text-muted mb-1">
+                        {{if .firewall.Structured}}Rules{{else}}Blocked by breach-harbor{{end}}
+                    </label>
+                    <div class="fs-5 fw-bold">
+                        {{if .firewall.Structured}}{{len .firewall.Rules}}{{else}}{{len .firewall.Collector.FirewallBlockedIPs}}{{end}}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <label class="form-label small text-muted mb-1">Last updated</label>
+                    <div class="fs-5 fw-bold">{{.firewall.Collector.FirewallUpdatedAt.Format "15:04:05"}}</div>
+                    <div class="small text-muted">{{.firewall.Collector.FirewallUpdatedAt.Format "Jan 2, 2006"}}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{if .firewall.Structured}}
+    <!-- Rule breakdown -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="fas fa-table me-2"></i>Rules</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>To</th>
+                                    <th>Action</th>
+                                    <th>From</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{range .firewall.Rules}}
+                                <tr{{if .OwnRule}} class="table-danger"{{end}}>
+                                    <td class="font-monospace small">{{.To}}</td>
+                                    <td>
+                                        {{if eq .Class "allow"}}
+                                        <span class="badge bg-success">{{.Action}}</span>
+                                        {{else if eq .Class "deny"}}
+                                        <span class="badge bg-danger">{{.Action}}</span>
+                                        {{else if eq .Class "reject"}}
+                                        <span class="badge bg-danger">{{.Action}}</span>
+                                        {{else if eq .Class "limit"}}
+                                        <span class="badge bg-warning text-dark">{{.Action}}</span>
+                                        {{else}}
+                                        <span class="badge bg-secondary">{{.Action}}</span>
+                                        {{end}}
+                                    </td>
+                                    <td class="font-monospace small">{{.From}}</td>
+                                    <td class="text-end">
+                                        {{if .OwnRule}}
+                                        <span class="badge bg-dark" title="Added by breach-harbor's own offender enforcement">
+                                            <i class="fas fa-shield-alt me-1"></i>breach-harbor
+                                        </span>
+                                        {{end}}
+                                        {{if .IPv6}}
+                                        <span class="badge bg-light text-dark border">v6</span>
+                                        {{end}}
+                                    </td>
+                                </tr>
+                                {{end}}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Breakdown</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span><span class="badge bg-success">&nbsp;</span> Allow</span>
+                        <strong>{{.firewall.AllowCount}}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span><span class="badge bg-danger">&nbsp;</span> Deny / Reject</span>
+                        <strong>{{.firewall.DenyCount}}</strong>
+                    </div>
+                    {{if .firewall.OtherCount}}
+                    <div class="d-flex justify-content-between">
+                        <span><span class="badge bg-secondary">&nbsp;</span> Other</span>
+                        <strong>{{.firewall.OtherCount}}</strong>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+
+            {{if .firewall.DefaultPolicy}}
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>Policy</h6>
+                </div>
+                <div class="card-body small">
+                    <div class="mb-2"><span class="text-muted">Default:</span> {{.firewall.DefaultPolicy}}</div>
+                    {{if .firewall.Logging}}<div><span class="text-muted">Logging:</span> {{.firewall.Logging}}</div>{{end}}
+                </div>
+            </div>
+            {{end}}
+
+            {{if .firewall.OpenPorts}}
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="fas fa-door-open me-2"></i>Open ports / services</h6>
+                </div>
+                <div class="card-body">
+                    {{range .firewall.OpenPorts}}
+                    <span class="badge bg-light text-dark border me-1 mb-1">{{.}}</span>
+                    {{end}}
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </div>
+    {{else}}
+    <div class="alert alert-secondary">
+        <i class="fas fa-info-circle me-2"></i>
+        {{if eq .firewall.Collector.FirewallBackend "none"}}
+        No usable firewall backend was detected on this host — install nftables, iptables+ipset, or run <code>ufw enable</code>, then wait for the next report.
+        {{else}}
+        A structured rule table isn't available for the <strong>{{.firewall.Collector.FirewallBackend}}</strong> backend yet (currently only ufw is parsed) &mdash; here's the raw configuration this collector last reported.
+        {{end}}
+    </div>
+
+    {{if .firewall.Collector.FirewallBlockedIPs}}
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <h6 class="mb-0"><i class="fas fa-shield-alt me-2"></i>Addresses breach-harbor has blocked</h6>
+        </div>
+        <div class="card-body">
+            <div class="font-monospace small" style="max-height:200px; overflow-y:auto;">
+                {{range .firewall.Collector.FirewallBlockedIPs}}{{.}}<br>{{end}}
+            </div>
+        </div>
+    </div>
+    {{end}}
+
+    {{if .firewall.Collector.FirewallConfig}}
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white">
+            <h6 class="mb-0"><i class="fas fa-terminal me-2"></i>Raw configuration</h6>
+        </div>
+        <div class="card-body">
+            <pre class="small font-monospace p-3 bg-light border rounded mb-0" style="max-height:500px; overflow:auto; white-space:pre-wrap;">{{.firewall.Collector.FirewallConfig}}</pre>
+        </div>
+    </div>
+    {{end}}
+    {{end}}
+    {{end}}
+        </div>
+    </main>
+
+    <div id="alerts" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;">
+        <!-- Alerts will be inserted here by HTMX -->
+    </div>
+
+    <script src="/static/js/main.js"></script>
+    <script>
+    function logout() {
+        fetch('/api/web/logout', { method: 'POST' })
+            .then(() => window.location.href = '/login');
+    }
+    </script>
+</body>
+</html>

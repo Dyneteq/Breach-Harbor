@@ -132,6 +132,7 @@ func (s *Server) registerWebRoutes(r *gin.Engine) {
 		pages.GET("/profile", webHandler.ProfilePage)
 		pages.GET("/collectors", webHandler.CollectorsPage)
 		pages.GET("/collectors/:name/incidents", webHandler.CollectorIncidentsPage)
+		pages.GET("/collectors/:name/firewall", webHandler.CollectorFirewallPage)
 		pages.GET("/incidents", webHandler.IncidentsPage)
 		pages.GET("/incidents/:id", webHandler.IncidentDetailsPage)
 		pages.GET("/ip-addresses", webHandler.IPAddressesPage)

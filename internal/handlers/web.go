@@ -194,6 +194,34 @@ func (h *WebHandler) CollectorIncidentsPage(c *gin.Context) {
 	})
 }
 
+// CollectorFirewallPage backs collectors.html's "Firewall" button
+// (window.location = '/collectors/{name}/firewall'): a full-page,
+// structured view of that collector's last-reported firewall
+// configuration — every rule in effect, not just the addresses
+// breach-harbor itself has blocked (collectors_list.html's card
+// already shows those).
+func (h *WebHandler) CollectorFirewallPage(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.Redirect(http.StatusTemporaryRedirect, "/login")
+		return
+	}
+
+	name := c.Param("name")
+	collector, err := h.collectorService.GetCollectorByName(userID.(uint), name)
+	if err != nil {
+		c.HTML(http.StatusNotFound, "error.html", gin.H{
+			"error": "Collector not found",
+		})
+		return
+	}
+
+	c.HTML(http.StatusOK, "collector_firewall.html", gin.H{
+		"title":    collector.Name + " Firewall - BREACH::HARBOR",
+		"firewall": BuildFirewallView(*collector),
+	})
+}
+
 func (h *WebHandler) IncidentDetailsPage(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {

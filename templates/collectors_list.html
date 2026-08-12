@@ -84,10 +84,9 @@
                         </details>
                         {{end}}
                         {{if .FirewallConfig}}
-                        <details class="mt-1">
-                            <summary class="small text-primary" style="cursor:pointer;">Show full configuration</summary>
-                            <pre class="small font-monospace mt-1 p-2 bg-light border rounded" style="max-height:300px; overflow:auto; white-space:pre-wrap;">{{.FirewallConfig}}</pre>
-                        </details>
+                        <a href="/collectors/{{.Name}}/firewall" class="small d-inline-block mt-1">
+                            <i class="fas fa-chart-bar me-1"></i>View full configuration
+                        </a>
                         {{end}}
                     </div>
                     {{end}}
