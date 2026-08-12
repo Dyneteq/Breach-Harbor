@@ -49,7 +49,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprint(w, `breachharbor — the threat blocking agent you can set up in five minutes.
 
 Usage:
-  breachharbor agent <run|install|uninstall|status|top|enforce|flush|sources|enroll> [flags]
+  breachharbor agent <run|install|uninstall|status|top|trace|enforce|flush|sources|enroll> [flags]
   breachharbor server <run|install|status> [flags]
   breachharbor doctor [--json]
   breachharbor version [--json]

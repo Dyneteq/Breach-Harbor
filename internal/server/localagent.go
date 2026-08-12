@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"regexp"
 	"sync"
 	"time"
 
@@ -59,6 +60,90 @@ type LocalAgentManager struct {
 	startedAt   time.Time
 	enforcing   bool
 	lastErr     error
+
+	logMu    sync.Mutex
+	logLines []LocalAgentLogLine
+	logSeq   uint64
+}
+
+// localAgentLogCapacity bounds the in-memory scrollback kept for the
+// terminal view (templates/local_agent.html's live log panel): old
+// lines fall off the front once exceeded, same trade-off as any
+// tail -f buffer; nothing here is persisted to disk or the DB.
+const localAgentLogCapacity = 500
+
+// localAgentLogLinePattern splits a rendered agent.Agent.emit() line
+// back into its columns. Agent.emit's own doc comment (internal/agent/
+// agent.go) states this "HH:MM:SS, left-aligned tag, free-form
+// message" shape as the stable contract every log line follows, so
+// parsing it back out here (rather than threading structured fields
+// through the Logf callback) is safe.
+var localAgentLogLinePattern = regexp.MustCompile(`^\S+\s+(\S+)\s+(.*)$`)
+
+// LocalAgentLogLine is one line of the running agent's live status
+// log, captured for the terminal panel. Seq is a monotonic cursor a
+// client can pass back as `since` to fetch only what's new.
+type LocalAgentLogLine struct {
+	Seq     uint64    `json:"seq"`
+	Time    time.Time `json:"time"`
+	Tag     string    `json:"tag"`
+	Message string    `json:"message"`
+}
+
+// appendLogLine records one rendered log line for the terminal panel.
+// Called from the agent's own Logf callback, so it must not block on
+// anything the agent's run loop could be holding.
+func (m *LocalAgentManager) appendLogLine(rendered string) {
+	tag, message := "", rendered
+	if match := localAgentLogLinePattern.FindStringSubmatch(rendered); match != nil {
+		tag, message = match[1], match[2]
+	}
+
+	m.logMu.Lock()
+	defer m.logMu.Unlock()
+	m.logSeq++
+	m.logLines = append(m.logLines, LocalAgentLogLine{
+		Seq:     m.logSeq,
+		Time:    time.Now(),
+		Tag:     tag,
+		Message: message,
+	})
+	if len(m.logLines) > localAgentLogCapacity {
+		m.logLines = m.logLines[len(m.logLines)-localAgentLogCapacity:]
+	}
+}
+
+// resetLog clears the scrollback, called at the start of every Start()
+// so a fresh run's terminal view doesn't open with a previous run's
+// tail still in it.
+func (m *LocalAgentManager) resetLog() {
+	m.logMu.Lock()
+	defer m.logMu.Unlock()
+	m.logLines = nil
+	m.logSeq = 0
+}
+
+// RecentLog returns every captured line with Seq > since (oldest
+// first), plus the cursor to pass as `since` on the next call. Safe to
+// call whether or not the agent is currently running: it just
+// reflects whatever's left in the buffer.
+func (m *LocalAgentManager) RecentLog(since uint64) ([]LocalAgentLogLine, uint64) {
+	m.logMu.Lock()
+	defer m.logMu.Unlock()
+	if len(m.logLines) == 0 || since >= m.logSeq {
+		return nil, m.logSeq
+	}
+	// logLines[0].Seq is the oldest surviving entry. since could be
+	// older than that if the caller was gone long enough for the ring
+	// buffer to wrap; start from the beginning in that case rather than
+	// indexing negative.
+	start := 0
+	if since >= m.logLines[0].Seq {
+		start = int(since - m.logLines[0].Seq + 1)
+	}
+	out := make([]LocalAgentLogLine, len(m.logLines)-start)
+	copy(out, m.logLines[start:])
+	return out, m.logSeq
 }
 
 // NewLocalAgentManager returns a manager that refuses every action
@@ -164,8 +249,14 @@ func (m *LocalAgentManager) Start(userID uint) error {
 		feed.NewCachedProvider(feed.NewTor(), cfg.DataDir, 0),
 	}
 
+	m.resetLog()
+
 	a := agent.New(cfg, fst, fw, feeds, sources)
-	a.Logf = func(format string, args ...any) { log.Printf("[local-agent] "+format, args...) }
+	a.Logf = func(format string, args ...any) {
+		line := fmt.Sprintf(format, args...)
+		log.Printf("[local-agent] %s", line)
+		m.appendLogLine(line)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

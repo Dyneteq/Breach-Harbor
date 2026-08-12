@@ -79,6 +79,24 @@
             </button>
             {{end}}
         </div>
+
+        <!--
+        hx-preserve keeps this exact DOM node across the panel's own
+        htmx polling swaps (every 5s, see the outer div's hx-trigger).
+        Without it, the terminal would be torn down and rebuilt every
+        five seconds, losing scroll position and restarting
+        static/js/local-agent-log.js's own poll loop. The script binds
+        to #local-agent-term once at page load and drives its content
+        itself from here on, independent of htmx.
+        -->
+        <div id="local-agent-term" class="bh-term mt-3" hx-preserve="true" data-log-url="/api/web/local-agent/log">
+            <div class="bh-term-titlebar">
+                <span class="bh-term-dots"><i></i><i></i><i></i></span>
+                <span class="bh-term-title">{{if .status.CollectorName}}{{.status.CollectorName}}{{else}}local-agent{{end}} &mdash; breachharbor agent run</span>
+                <span class="bh-live bh-blink ms-auto">LIVE</span>
+            </div>
+            <pre class="bh-term-body" id="local-agent-term-body"><code class="bh-term-placeholder">waiting for agent output&hellip;</code></pre>
+        </div>
         {{end}}
     </div>
 </div>

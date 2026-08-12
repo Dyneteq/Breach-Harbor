@@ -118,6 +118,7 @@ func (s *Server) registerWebRoutes(r *gin.Engine) {
 			webAuthed.DELETE("/collectors/:name", webHandler.HandleDeleteCollector)
 
 			webAuthed.GET("/local-agent", s.handleLocalAgentStatus)
+			webAuthed.GET("/local-agent/log", s.handleLocalAgentLog)
 			webAuthed.POST("/local-agent/start", s.handleLocalAgentStart)
 			webAuthed.POST("/local-agent/stop", s.handleLocalAgentStop)
 			webAuthed.POST("/local-agent/enforce", s.handleLocalAgentEnforce)

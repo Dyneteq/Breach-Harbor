@@ -26,6 +26,23 @@ func (s *Server) handleLocalAgentStatus(c *gin.Context) {
 	s.renderLocalAgentPanel(c, http.StatusOK)
 }
 
+// handleLocalAgentLog backs the terminal panel's live log view
+// (static/js/local-agent-log.js): a plain polling endpoint, no
+// WebSocket/SSE, matching this app's existing htmx-polling
+// conventions elsewhere. `since` is the last cursor the client saw
+// (0 on first load); the response's `cursor` is what to pass next
+// time. Read-only, so unlike Start/Stop/SetEnforce it isn't
+// restricted to whoever started the agent: anyone logged in can
+// already see this host's activity via Incidents/IP Addresses.
+func (s *Server) handleLocalAgentLog(c *gin.Context) {
+	since, _ := strconv.ParseUint(c.Query("since"), 10, 64)
+	lines, cursor := s.localAgent.RecentLog(since)
+	if lines == nil {
+		lines = []LocalAgentLogLine{}
+	}
+	c.JSON(http.StatusOK, gin.H{"lines": lines, "cursor": cursor})
+}
+
 func (s *Server) handleLocalAgentStart(c *gin.Context) {
 	userID, ok := c.Get("user_id")
 	if !ok {

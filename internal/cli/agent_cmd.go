@@ -29,6 +29,8 @@ func runAgentCmd(ctx context.Context, args []string, stdout, stderr io.Writer) i
 		return runAgentStatus(ctx, rest, stdout, stderr)
 	case "top":
 		return runAgentTop(ctx, rest, stdout, stderr)
+	case "trace":
+		return runAgentTrace(ctx, rest, stdout, stderr)
 	case "enforce":
 		return runAgentEnforce(ctx, rest, stdout, stderr)
 	case "sources":
@@ -54,6 +56,7 @@ Subcommands:
   uninstall  Remove the service. Implies flush.
   status     What's running, watched, blocked, since when.
   top        Live top-attackers view.
+  trace      Attach to an installed service and stream its live log, in color.
   enforce    Switch observe-only <-> enforcing (--on|--off).
   flush      Remove every rule this agent added. Always safe.
   sources    List detected log sources and their state.
