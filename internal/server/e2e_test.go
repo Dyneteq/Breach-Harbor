@@ -56,7 +56,7 @@ func TestEndToEnd_EnrollObserveIngestPublishFetchVerifyMerge(t *testing.T) {
 	// fetching, which internal/feed already covers on its own.
 	srv.publisher.Source = srv.confirmedFromIncidents
 
-	_, token := createTestUserAndCollector(t, srv, "web-1")
+	collector, token := createTestUserAndCollector(t, srv, "web-1")
 
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
@@ -71,6 +71,21 @@ func TestEndToEnd_EnrollObserveIngestPublishFetchVerifyMerge(t *testing.T) {
 	}
 	if len(enrollment.PublicKey) == 0 {
 		t.Fatal("expected a non-empty pinned public key")
+	}
+
+	// 1b. The server must now show this collector as enrolled (proof
+	// the token works and the server was reachable) but NOT yet
+	// online (no data has flowed) — the dashboard's three-state
+	// distinction this test exists to pin down.
+	enrolledCollector, err := srv.collectorService.GetCollectorByID(collector.ID)
+	if err != nil {
+		t.Fatalf("GetCollectorByID after enroll: %v", err)
+	}
+	if enrolledCollector.EnrolledAt == nil {
+		t.Error("expected EnrolledAt to be set immediately after a successful POST /v1/enroll")
+	}
+	if enrolledCollector.LastOnline != nil {
+		t.Error("expected LastOnline to still be nil — enrolling alone must not mark the collector online")
 	}
 
 	// 2. Observe: queue enough observations of one attacker IP, from

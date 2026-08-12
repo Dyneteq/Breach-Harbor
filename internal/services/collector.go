@@ -118,6 +118,16 @@ func (s *CollectorService) UpdateLastOnline(collectorID uint) error {
 	return s.db.Model(&models.Collector{}).Where("id = ?", collectorID).Update("last_online", &now).Error
 }
 
+// MarkEnrolled records that an agent successfully completed POST
+// /v1/enroll for this collector. Called on every successful enroll,
+// not just the first — re-enrolling (e.g. after wiping the agent's
+// data directory) refreshes it to "most recently enrolled," which is
+// more useful on the dashboard than "first ever."
+func (s *CollectorService) MarkEnrolled(collectorID uint) error {
+	now := time.Now()
+	return s.db.Model(&models.Collector{}).Where("id = ?", collectorID).Update("enrolled_at", &now).Error
+}
+
 // resolveIPAddress returns the IPAddress row for ipAddress, creating it
 // (and its Location, via enrichment) on first sight.
 func (s *CollectorService) resolveIPAddress(ipAddress string) (*models.IPAddress, error) {
