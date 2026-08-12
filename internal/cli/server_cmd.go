@@ -51,7 +51,7 @@ func printServerUsage(w io.Writer) {
 
 Subcommands:
   run      Run the server in the foreground.
-  install  Service unit for the server.
+  install  Write/enable a daemon for the server (systemd on Linux, launchd on macOS).
   status   Health, agent count, ingest rate, blocklist freshness.
 `)
 }
@@ -143,19 +143,30 @@ func runServerInstall(ctx context.Context, args []string, stdout, stderr io.Writ
 		return 2
 	}
 
-	if runtime.GOOS != "linux" {
-		printErr(stderr, fail(fmt.Errorf("systemd install is only supported on Linux (this build: %s)", runtime.GOOS), "run `breachharbor server run` directly instead"))
+	switch runtime.GOOS {
+	case "linux":
+		s := server.NewSystemd(nil)
+		if err := s.Install(ctx, server.InstallOptions{Listen: *listen}); err != nil {
+			printErr(stderr, fail(err, "installing a systemd unit needs root — try again with sudo"))
+			return 1
+		}
+		fmt.Fprintf(stdout, "Installed and started %s.\n", server.UnitName)
+		fmt.Fprintf(stdout, "Check status with: sudo systemctl status %s\n", server.UnitName)
+
+	case "darwin":
+		l := server.NewLaunchd(nil)
+		if err := l.Install(ctx, server.LaunchdInstallOptions{Listen: *listen}); err != nil {
+			printErr(stderr, fail(err, "installing a LaunchDaemon needs root — try again with sudo"))
+			return 1
+		}
+		fmt.Fprintf(stdout, "Installed and started %s.\n", server.LaunchdLabel)
+		fmt.Fprintf(stdout, "Check status with: sudo launchctl list | grep %s\n", server.LaunchdLabel)
+		fmt.Fprintf(stdout, "Logs at: %s\n", server.DefaultDataDir()+"/server.log")
+
+	default:
+		printErr(stderr, fail(fmt.Errorf("daemon install is only supported on Linux and macOS (this build: %s)", runtime.GOOS), "run `breachharbor server run` directly instead"))
 		return 1
 	}
-
-	s := server.NewSystemd(nil)
-	if err := s.Install(ctx, server.InstallOptions{Listen: *listen}); err != nil {
-		printErr(stderr, fail(err, "installing a systemd unit needs root — try again with sudo"))
-		return 1
-	}
-
-	fmt.Fprintf(stdout, "Installed and started %s.\n", server.UnitName)
-	fmt.Fprintf(stdout, "Check status with: sudo systemctl status %s\n", server.UnitName)
 	return 0
 }
 

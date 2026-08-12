@@ -8,16 +8,16 @@ import (
 	"testing"
 )
 
-func TestMain_Agent_Install_NonLinux(t *testing.T) {
-	if runtime.GOOS == "linux" {
-		t.Skip("this assertion only applies to non-Linux hosts; internal/agent/systemd_test.go covers Linux behavior via a fake runner")
+func TestMain_Agent_Install_UnsupportedOS(t *testing.T) {
+	if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+		t.Skip("this assertion only applies to hosts with no daemon backend; internal/agent/systemd_test.go and launchd_test.go cover Linux/macOS via fake runners")
 	}
 	_, stderr, code := run("agent", "install")
 	if code != 1 {
 		t.Errorf("code = %d, want 1", code)
 	}
-	if !strings.Contains(stderr, "Linux") {
-		t.Errorf("expected a clear Linux-only message, got %q", stderr)
+	if !strings.Contains(stderr, "Linux and macOS") {
+		t.Errorf("expected a clear Linux/macOS-only message, got %q", stderr)
 	}
 }
 

@@ -16,24 +16,36 @@ func runAgentInstall(ctx context.Context, args []string, stdout, stderr io.Write
 	fs := flag.NewFlagSet("agent install", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	enforce := fs.Bool("enforce", false, "start enforcing immediately instead of a 24h dry run")
-	root := fs.Bool("root", false, "install a full-root unit instead of attempting ambient capabilities")
+	root := fs.Bool("root", false, "install a full-root unit instead of attempting ambient capabilities (Linux only)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
-	if runtime.GOOS != "linux" {
-		printErr(stderr, fail(fmt.Errorf("systemd install is only supported on Linux (this build: %s)", runtime.GOOS), "run `breachharbor agent run` directly instead"))
+	switch runtime.GOOS {
+	case "linux":
+		s := agent.NewSystemd(nil)
+		if err := s.Install(ctx, agent.InstallOptions{Enforce: *enforce, Root: *root}); err != nil {
+			printErr(stderr, fail(err, "installing a systemd unit needs root — try again with sudo"))
+			return 1
+		}
+		fmt.Fprintf(stdout, "Installed and started %s.\n", agent.UnitName)
+		fmt.Fprintf(stdout, "Check status with: sudo systemctl status %s\n", agent.UnitName)
+
+	case "darwin":
+		l := agent.NewLaunchd(nil)
+		if err := l.Install(ctx, agent.LaunchdInstallOptions{Enforce: *enforce}); err != nil {
+			printErr(stderr, fail(err, "installing a LaunchDaemon needs root — try again with sudo"))
+			return 1
+		}
+		fmt.Fprintf(stdout, "Installed and started %s.\n", agent.LaunchdLabel)
+		fmt.Fprintf(stdout, "Check status with: sudo launchctl list | grep %s\n", agent.LaunchdLabel)
+		fmt.Fprintf(stdout, "Logs at: %s\n", agent.DefaultDataDir()+"/agent.log")
+
+	default:
+		printErr(stderr, fail(fmt.Errorf("daemon install is only supported on Linux and macOS (this build: %s)", runtime.GOOS), "run `breachharbor agent run` directly instead"))
 		return 1
 	}
 
-	s := agent.NewSystemd(nil)
-	if err := s.Install(ctx, agent.InstallOptions{Enforce: *enforce, Root: *root}); err != nil {
-		printErr(stderr, fail(err, "installing a systemd unit needs root — try again with sudo"))
-		return 1
-	}
-
-	fmt.Fprintf(stdout, "Installed and started %s.\n", agent.UnitName)
-	fmt.Fprintf(stdout, "Check status with: sudo systemctl status %s\n", agent.UnitName)
 	if !*enforce {
 		fmt.Fprintln(stdout, "Running in dry run. Enable blocking any time with: breachharbor agent enforce --on")
 	}
@@ -50,10 +62,17 @@ func runAgentUninstall(ctx context.Context, args []string, stdout, stderr io.Wri
 		return 2
 	}
 
-	if runtime.GOOS == "linux" {
+	switch runtime.GOOS {
+	case "linux":
 		s := agent.NewSystemd(nil)
 		if err := s.Uninstall(ctx); err != nil {
 			printErr(stderr, fail(err, "uninstalling the systemd unit needs root — try again with sudo"))
+			return 1
+		}
+	case "darwin":
+		l := agent.NewLaunchd(nil)
+		if err := l.Uninstall(ctx); err != nil {
+			printErr(stderr, fail(err, "uninstalling the LaunchDaemon needs root — try again with sudo"))
 			return 1
 		}
 	}
