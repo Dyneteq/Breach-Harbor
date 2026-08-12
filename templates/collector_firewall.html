@@ -261,7 +261,7 @@
     <div class="alert alert-secondary">
         <i class="fas fa-info-circle me-2"></i>
         {{if eq .firewall.Collector.FirewallBackend "none"}}
-        No usable firewall backend was detected on this host — install nftables, iptables+ipset, or run <code>ufw enable</code>, then wait for the next report.
+        No usable firewall backend was detected on this host — install nftables, iptables+ipset, or iptables-nft, or run <code>ufw enable</code>, then wait for the next report.
         {{else}}
         A structured rule table isn't available for the <strong>{{.firewall.Collector.FirewallBackend}}</strong> backend yet (currently only ufw is parsed) &mdash; here's the raw configuration this collector last reported.
         {{end}}

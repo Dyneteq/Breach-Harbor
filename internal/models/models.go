@@ -93,9 +93,10 @@ type Collector struct {
 	// together (internal/handlers/web.go's collectorStatus).
 	LastHeartbeat *time.Time `json:"last_heartbeat"`
 	// FirewallBackend is the name of the firewall.Backend ("nftables",
-	// "ipset", "ufw", "pf", or "none" if unavailable) this collector's
-	// agent last reported using — empty until its first
-	// POST /v1/firewall-status (internal/agent's sendFirewallStatus).
+	// "ipset", "iptables-nft", "ufw", "pf", or "none" if unavailable)
+	// this collector's agent last reported using — empty until its
+	// first POST /v1/firewall-status (internal/agent's
+	// sendFirewallStatus).
 	FirewallBackend string `json:"firewall_backend"`
 	// FirewallEnforcing mirrors the agent's own enforce/dry-run mode at
 	// the moment of its last firewall status report — can lag the

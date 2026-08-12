@@ -67,7 +67,7 @@ Subcommands:
 func runAgentFlush(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("agent flush", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	firewallName := fs.String("firewall", "auto", "firewall backend: nft, ipset, ufw, pf, or auto")
+	firewallName := fs.String("firewall", "auto", "firewall backend: nft, ipset, iptables-nft, ufw, pf, or auto")
 	jsonOut := fs.Bool("json", false, "output as JSON")
 	yes := fs.Bool("yes", false, "actually remove rules (without this flag, only reports what would be removed)")
 	if err := fs.Parse(args); err != nil {
@@ -76,7 +76,7 @@ func runAgentFlush(ctx context.Context, args []string, stdout, stderr io.Writer)
 
 	backend, err := firewall.Detect(ctx, *firewallName)
 	if err != nil {
-		printErr(stderr, fail(err, "install nftables or iptables+ipset, or run `ufw enable` (Linux), or use pfctl (macOS/OpenBSD), then retry"))
+		printErr(stderr, fail(err, "install nftables, iptables+ipset, or iptables-nft, or run `ufw enable` (Linux), or use pfctl (macOS/OpenBSD), then retry"))
 		return 1
 	}
 

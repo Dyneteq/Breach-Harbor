@@ -117,6 +117,11 @@ func firewallChecks(ctx context.Context) []doctorCheck {
 	} else {
 		checks = append(checks, doctorCheck{Name: "", Status: "ok", Detail: "iptables/ipset detected as fallback"})
 	}
+	if err := firewall.NewIPTablesNFT(nil).Available(ctx); err != nil {
+		checks = append(checks, doctorCheck{Name: "", Status: "skip", Detail: "iptables-nft: not available (" + shortErr(err) + ")"})
+	} else {
+		checks = append(checks, doctorCheck{Name: "", Status: "ok", Detail: "iptables-nft detected as fallback"})
+	}
 	if err := firewall.NewUFW(nil).Available(ctx); err != nil {
 		checks = append(checks, doctorCheck{Name: "", Status: "skip", Detail: "ufw: not available (" + shortErr(err) + ")"})
 	} else {

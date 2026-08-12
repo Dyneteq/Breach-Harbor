@@ -69,7 +69,7 @@
                         </div>
                         <div class="small text-muted">
                             {{if eq .FirewallBackend "none"}}
-                            No usable firewall backend found on this host (install nftables, iptables+ipset, or ufw)
+                            No usable firewall backend found on this host (install nftables, iptables+ipset, iptables-nft, or ufw)
                             {{else}}
                             {{len .FirewallBlockedIPs}} address{{if ne (len .FirewallBlockedIPs) 1}}es{{end}} currently blocked
                             {{end}}

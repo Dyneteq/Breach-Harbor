@@ -30,8 +30,9 @@ type Config struct {
 	// Refresh is how often feeds are re-fetched (bounded further by
 	// each feed's own on-disk TTL cache — see internal/feed/cache.go).
 	Refresh time.Duration
-	// Firewall selects a backend name ("auto", "nft", "ipset", "ufw",
-	// or "pf"), passed straight through to firewall.Detect.
+	// Firewall selects a backend name ("auto", "nft", "ipset",
+	// "iptables-nft", "ufw", or "pf"), passed straight through to
+	// firewall.Detect.
 	Firewall string
 	JSON     bool
 }
@@ -57,9 +58,9 @@ func (c Config) Validate() error {
 		return fmt.Errorf("refresh interval must be positive, got %s", c.Refresh)
 	}
 	switch c.Firewall {
-	case "auto", "nft", "nftables", "ipset", "iptables", "ufw", "pf":
+	case "auto", "nft", "nftables", "ipset", "iptables", "iptables-nft", "ufw", "pf":
 	default:
-		return fmt.Errorf("unknown firewall backend %q (want auto, nft, ipset, ufw, or pf)", c.Firewall)
+		return fmt.Errorf("unknown firewall backend %q (want auto, nft, ipset, iptables-nft, ufw, or pf)", c.Firewall)
 	}
 	return nil
 }
