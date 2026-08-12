@@ -175,6 +175,19 @@
         </div>
 
         <div class="col-lg-8">
+            <!-- Attack Map -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-satellite-dish me-2"></i>Attack Map
+                    </h5>
+                    {{if .incidents}}<span class="bh-live bh-blink">&#9679; LIVE</span>{{end}}
+                </div>
+                <div class="card-body p-0">
+                    <div id="attack-map"></div>
+                </div>
+            </div>
+
             <!-- Incident History -->
             <div class="card">
                 <div class="card-header">
@@ -251,5 +264,11 @@ function logout() {
     </div>
 
     <script src="/static/js/main.js"></script>
+    <script src="/static/js/attack-map.js"></script>
+    <script>
+        BreachHarbor.AttackMap.init(document.getElementById('attack-map'), {
+            feedUrl: '/api/v1/ip-addresses/{{.ip_address.IP}}/attack-map'
+        });
+    </script>
 </body>
 </html>

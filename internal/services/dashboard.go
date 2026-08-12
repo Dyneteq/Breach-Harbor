@@ -9,7 +9,8 @@ import (
 )
 
 type DashboardService struct {
-	db *gorm.DB
+	db              *gorm.DB
+	locationService *LocationService
 }
 
 type DashboardStats struct {
@@ -33,8 +34,27 @@ type HourlyIncidentCount struct {
 	Count int64 `json:"count"`
 }
 
-func NewDashboardService(db *gorm.DB) *DashboardService {
-	return &DashboardService{db: db}
+// AttackMapEvent is one plottable arc for the animated attack map: an
+// attacker source point (from the incident's IPAddress.Location) and a
+// destination point (the collector that observed it, geolocated the same
+// way as attacker IPs, via LocationService.GetOrCreateLocation(collector.IP)
+// rather than a stored relation — Collector has no LocationID).
+type AttackMapEvent struct {
+	IncidentID    uint      `json:"incident_id"`
+	IncidentType  string    `json:"incident_type"`
+	HappenedAt    time.Time `json:"happened_at"`
+	SourceIP      string    `json:"source_ip"`
+	SourceLat     float64   `json:"source_lat"`
+	SourceLon     float64   `json:"source_lon"`
+	SourceCity    string    `json:"source_city"`
+	SourceCountry string    `json:"source_country"`
+	CollectorName string    `json:"collector_name"`
+	DestLat       float64   `json:"dest_lat"`
+	DestLon       float64   `json:"dest_lon"`
+}
+
+func NewDashboardService(db *gorm.DB, locationService *LocationService) *DashboardService {
+	return &DashboardService{db: db, locationService: locationService}
 }
 
 func (s *DashboardService) GetDashboardStats(userID uint) (*DashboardStats, error) {
@@ -160,4 +180,105 @@ func (s *DashboardService) GetIPAddressDetails(userID uint, ip string) (*models.
 	}
 
 	return &ipAddress, incidents, nil
+}
+
+// GetAttackMapEvents returns the most recent incidents across every
+// collector, shaped for the dashboard's attack map (source = attacker IP,
+// destination = the collector that observed it).
+func (s *DashboardService) GetAttackMapEvents(userID uint, limit int) ([]AttackMapEvent, error) {
+	var incidents []models.Incident
+	err := s.db.Preload("Collector").
+		Preload("IPAddress").
+		Preload("IPAddress.Location").
+		Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&incidents).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return s.buildAttackMapEvents(incidents)
+}
+
+// GetIPAttackMapEvents returns one IP's incidents shaped for the IP detail
+// page's attack map: a fixed source (this IP) with arcs to whichever
+// collector(s) observed it.
+func (s *DashboardService) GetIPAttackMapEvents(userID uint, ip string, limit int) ([]AttackMapEvent, error) {
+	var ipAddress models.IPAddress
+	if err := s.db.Preload("Location").Where("ip = ?", ip).First(&ipAddress).Error; err != nil {
+		return nil, err
+	}
+
+	var incidents []models.Incident
+	err := s.db.Preload("Collector").
+		Where("user_id = ? AND ip_address_id = ?", userID, ipAddress.ID).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&incidents).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range incidents {
+		incidents[i].IPAddress = ipAddress
+	}
+
+	return s.buildAttackMapEvents(incidents)
+}
+
+// buildAttackMapEvents resolves each incident's collector location (cached
+// per collector ID for the duration of this call, since GetOrCreateLocation
+// itself only hits the DB, not the mmdb reader, once a collector's IP has
+// been seen once) and skips anything without a usable source point — an
+// unenriched or lookup-failed Location comes back as "Unknown"/0,0
+// (LocationService.GetOrCreateLocation's documented fallback), which would
+// otherwise plot every such incident at 0,0 ("null island").
+func (s *DashboardService) buildAttackMapEvents(incidents []models.Incident) ([]AttackMapEvent, error) {
+	destCache := make(map[uint]*models.Location, len(incidents))
+	events := make([]AttackMapEvent, 0, len(incidents))
+
+	for _, incident := range incidents {
+		loc := incident.IPAddress.Location
+		if loc.Latitude == 0 && loc.Longitude == 0 {
+			continue
+		}
+
+		dest, ok := destCache[incident.CollectorID]
+		if !ok {
+			var err error
+			dest, err = s.locationService.GetOrCreateLocation(incident.Collector.IP)
+			if err != nil {
+				dest = nil
+			}
+			destCache[incident.CollectorID] = dest
+		}
+		if dest == nil || (dest.Latitude == 0 && dest.Longitude == 0) {
+			continue
+		}
+
+		events = append(events, newAttackMapEvent(incident, *dest))
+	}
+
+	return events, nil
+}
+
+// newAttackMapEvent maps one incident plus its already-resolved destination
+// location into the wire shape — split out from buildAttackMapEvents so the
+// field mapping is testable without a LocationService/mmdb in the loop.
+func newAttackMapEvent(incident models.Incident, dest models.Location) AttackMapEvent {
+	loc := incident.IPAddress.Location
+	return AttackMapEvent{
+		IncidentID:    incident.ID,
+		IncidentType:  incident.IncidentType,
+		HappenedAt:    incident.HappenedAt,
+		SourceIP:      incident.IPAddress.IP,
+		SourceLat:     loc.Latitude,
+		SourceLon:     loc.Longitude,
+		SourceCity:    loc.City,
+		SourceCountry: loc.CountryName,
+		CollectorName: incident.Collector.Name,
+		DestLat:       dest.Latitude,
+		DestLon:       dest.Longitude,
+	}
 }
