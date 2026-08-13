@@ -47,6 +47,13 @@ type Agent struct {
 	Sources  []logsource.Source
 	Weights  ScoreWeights
 
+	// Fail2ban, when set, is asked whether an IP is already banned
+	// right before block() would otherwise add a firewall rule for it
+	// — so an enforcing agent never lays down a duplicate rule for an
+	// IP fail2ban is already blocking on its own. Nil skips the check
+	// entirely (a standalone agent that doesn't care, or a test).
+	Fail2ban Fail2banChecker
+
 	// Uploader is nil for a standalone agent (the default). When set
 	// (internal/cli/agent_run.go, once `agent enroll` has persisted an
 	// Enrollment), Run periodically drains the observation queue to
@@ -484,6 +491,14 @@ func (a *Agent) block(ctx context.Context, offender *store.Offender, win *Window
 	reason := summarize(win, now, a.Weights)
 	if !a.Config.Enforce {
 		a.emit(now, "would", "block %-15s (%s)", ev.IP, reason)
+		return
+	}
+	if a.Fail2ban != nil && a.Fail2ban.Banned(ctx, ev.IP) {
+		blockedAt := now
+		offender.Blocked = true
+		offender.BlockedAt = &blockedAt
+		a.totalBlocked++
+		a.emit(now, "block", "%-15s already banned by fail2ban, skipping duplicate rule", ev.IP)
 		return
 	}
 	target := firewall.Target{Addr: netip.PrefixFrom(ev.IP, ev.IP.BitLen())}

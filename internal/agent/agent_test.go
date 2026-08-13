@@ -215,6 +215,72 @@ func TestAgent_BlockFailure_DoesNotMarkBlocked(t *testing.T) {
 	}
 }
 
+// fakeFail2ban lets tests control whether a given IP reads as already
+// banned without shelling out to a real fail2ban-client.
+type fakeFail2ban struct {
+	banned map[string]bool
+	calls  int
+}
+
+func (f *fakeFail2ban) Banned(ctx context.Context, ip netip.Addr) bool {
+	f.calls++
+	return f.banned[ip.String()]
+}
+
+func TestAgent_Enforcing_SkipsFirewallBlock_WhenFail2banAlreadyBannedIP(t *testing.T) {
+	a, st, fw, logs := newTestAgent(t, true)
+	ip := mustAddr(t, "203.0.113.44")
+	f2b := &fakeFail2ban{banned: map[string]bool{ip.String(): true}}
+	a.Fail2ban = f2b
+
+	for i := 0; i < 4; i++ {
+		a.handleEvent(context.Background(), sshEvent(ip))
+	}
+
+	if f2b.calls == 0 {
+		t.Error("expected the fail2ban checker to be consulted before blocking")
+	}
+	if fw.blockCalls != 0 {
+		t.Errorf("expected no firewall.Block call for an IP fail2ban already banned, got %d", fw.blockCalls)
+	}
+	off, ok, _ := st.GetOffender(ip)
+	if !ok || !off.Blocked {
+		t.Error("expected the offender to still be marked Blocked=true, even though our own rule was skipped")
+	}
+	if !hasTag(*logs, "block") {
+		t.Errorf("expected a 'block' log line noting the skip, got logs: %v", *logs)
+	}
+}
+
+func TestAgent_Enforcing_BlocksNormally_WhenFail2banHasNotBannedIP(t *testing.T) {
+	a, _, fw, _ := newTestAgent(t, true)
+	ip := mustAddr(t, "203.0.113.44")
+	a.Fail2ban = &fakeFail2ban{banned: map[string]bool{}}
+
+	for i := 0; i < 4; i++ {
+		a.handleEvent(context.Background(), sshEvent(ip))
+	}
+
+	if fw.blockCalls != 1 {
+		t.Errorf("expected the normal firewall.Block call when fail2ban hasn't banned the IP, got %d", fw.blockCalls)
+	}
+}
+
+func TestAgent_Enforcing_NilFail2banChecker_BlocksNormally(t *testing.T) {
+	a, _, fw, _ := newTestAgent(t, true)
+	ip := mustAddr(t, "203.0.113.44")
+	// a.Fail2ban left nil — must not panic and must behave exactly as
+	// before this check existed.
+
+	for i := 0; i < 4; i++ {
+		a.handleEvent(context.Background(), sshEvent(ip))
+	}
+
+	if fw.blockCalls != 1 {
+		t.Errorf("expected a normal firewall.Block call with no Fail2ban checker set, got %d", fw.blockCalls)
+	}
+}
+
 func TestAgent_ReconcileState_PicksUpEnforceOnFromDisk(t *testing.T) {
 	a, _, fw, logs := newTestAgent(t, false)
 

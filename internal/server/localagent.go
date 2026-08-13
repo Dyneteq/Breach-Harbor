@@ -252,6 +252,7 @@ func (m *LocalAgentManager) Start(userID uint) error {
 	m.resetLog()
 
 	a := agent.New(cfg, fst, fw, feeds, sources)
+	a.Fail2ban = agent.NewFail2banClient()
 	a.Logf = func(format string, args ...any) {
 		line := fmt.Sprintf(format, args...)
 		log.Printf("[local-agent] %s", line)

@@ -106,6 +106,7 @@ func runAgentRun(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	}
 
 	a := agent.New(cfg, st, fw, feeds, sources)
+	a.Fail2ban = agent.NewFail2banClient()
 	a.Logf = func(format string, args ...any) {
 		msg := fmt.Sprintf(format, args...)
 		if cfg.JSON {
