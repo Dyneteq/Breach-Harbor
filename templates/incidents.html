@@ -116,11 +116,18 @@
                             <td>
                                 <div class="d-flex flex-column">
                                     <span class="fw-medium">{{.CreatedAt.Format "Jan 2, 2006"}}</span>
+                                    {{if gt .Count 1}}
+                                    <small class="text-muted">{{.FirstAt.Format "15:04:05"}}&ndash;{{.LastAt.Format "15:04:05"}}</small>
+                                    {{else}}
                                     <small class="text-muted">{{.CreatedAt.Format "15:04:05"}}</small>
+                                    {{end}}
                                 </div>
                             </td>
                             <td>
                                 <span class="badge bg-danger">{{.IncidentType}}</span>
+                                {{if gt .Count 1}}
+                                <span class="badge bg-secondary" title="{{.Count}} consecutive occurrences">&times;{{.Count}}</span>
+                                {{end}}
                             </td>
                             <td>
                                 <code class="text-primary">{{.IPAddress.IP}}</code>
@@ -170,7 +177,7 @@
         <div class="card-footer bg-white">
             <div class="row align-items-center">
                 <div class="col">
-                    <small class="text-muted">Showing {{len .incidents}} incidents</small>
+                    <small class="text-muted">Showing {{len .incidents}} rows</small>
                 </div>
                 <div class="col-auto">
                     <nav>

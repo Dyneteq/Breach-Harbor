@@ -157,7 +157,7 @@ func (h *WebHandler) IncidentsPage(c *gin.Context) {
 
 	c.HTML(http.StatusOK, "incidents.html", gin.H{
 		"title":     "Incidents - BREACH::HARBOR",
-		"incidents": incidents,
+		"incidents": groupConsequentIncidents(incidents),
 	})
 }
 
@@ -190,7 +190,7 @@ func (h *WebHandler) CollectorIncidentsPage(c *gin.Context) {
 
 	c.HTML(http.StatusOK, "incidents.html", gin.H{
 		"title":     collector.Name + " Incidents - BREACH::HARBOR",
-		"incidents": incidents,
+		"incidents": groupConsequentIncidents(incidents),
 	})
 }
 

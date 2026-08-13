@@ -522,6 +522,25 @@ pre {
 }
 .origin-bar-fill { height: 100%; background: var(--bh-accent); }
 
+/* ---- dashboard: hourly incident volume ----------------------------------- */
+
+.hour-track {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 120px;
+  padding-top: 4px;
+  overflow: hidden;
+}
+.hour-bar {
+  flex: 1 1 0;
+  min-width: 3px;
+  max-height: 100%;
+  min-height: 2px;
+  background: var(--bh-accent);
+  border-radius: 1px 1px 0 0;
+}
+
 /* ---- attack map ---------------------------------------------------------- */
 
 .attack-map-toolbar {
