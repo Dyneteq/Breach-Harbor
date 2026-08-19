@@ -8,10 +8,22 @@
     <a href="https://github.com/Dyneteq/Breach-Harbor/issues">Request Feature</a>
     ·
     <a href="https://breachharbor.com">Website</a>
+    ·
+    <a href="https://discord.gg/e7QMAfAPvY">Discord</a>
   </p>
 
   <pre><code>curl -fsSL https://breachharbor.com/install.sh | sh</code></pre>
 </div>
+
+![Dashboard screenshot](doc/dashboard.png)
+
+---
+
+## 💖 Enjoying Breach Harbor?
+
+Help keep it free and actively developed by [buying me a coffee](https://coff.ee/chrisveleris) ☕, [becoming a sponsor](https://github.com/sponsors/chrisvel), or [supporting on Patreon](https://www.patreon.com/ChrisVeleris). If you're running this at a company, a **business license** funds the project too (see [Pricing on the website](https://breachharbor.com/#pricing)). Every contribution helps keep the build machines running and the blocklist honest.
+
+---
 
 ## What it is
 
@@ -79,10 +91,11 @@ Re-run with `sudo` if the binary lives in a root-owned directory (the default
 
 Being rebuilt into the CLI above, one milestone at a time:
 
-- ✅ **M0: it builds.** `version`, `doctor`, `agent flush` work today. Everything else says so
-  honestly instead of pretending.
-- 🚧 **M1: the agent stands alone.** In progress.
-- ⏳ **M2: the server is useful.** Planned.
+- ✅ **M0: it builds.** `version`, `doctor`, `agent flush` work today.
+- ✅ **M1: the agent stands alone.** `agent run/status/top/enforce/sources/install/uninstall` all work.
+- ✅ **M2: the server is useful.** `server run/install/status` and `agent enroll` work; agents can
+  publish to a server and pull its blocklist.
+- ⏳ **M3: trust hardening** and **M4: sharing.** Sketched, not started.
 
 ## Development
 
@@ -134,3 +147,12 @@ IP geolocation/ASN enrichment is powered by one of these, whichever database you
 ## Support
 
 [GitHub Issues](https://github.com/Dyneteq/Breach-Harbor/issues)
+
+Join the Breach Harbor community:
+
+[![Discord](https://img.shields.io/badge/Discord-Join%20Server-7289da?logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/e7QMAfAPvY)
+
+## 🌟 Please check my other projects!
+
+- **[tududi](https://tududi.com)** - Self-hosted task and project management app
+- **[Reconya](https://reconya.com)** - Network reconnaissance and asset discovery tool
