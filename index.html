@@ -1,9 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-THR3XV0BZ4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-THR3XV0BZ4');
+</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Breach Harbor — know who is attacking your server</title>
+<title>Breach Harbor: know who is attacking your server</title>
 <meta name="description" content="Breach Harbor reads the logs your Linux server already writes, shows you every IP hitting the machine, and blocks the ones that are attacking. Open source, GPL-3.0.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -75,7 +84,7 @@
 
         <div>
           <h1 style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:clamp(40px,5.6vw,68px);line-height:1.02;letter-spacing:-0.01em;margin:0 0 22px;color:#ffffff;text-wrap:balance">Know who is attacking your server.<br><span style="color:#94bce3">Then block them.</span></h1>
-          <p style="margin:0 0 32px;font-size:19px;line-height:1.6;color:#c8cbcf;max-width:52ch;text-wrap:pretty">One small program on your Linux server. It reads the log files you already have, shows you who is knocking, and blocks the ones that are attacking. For the first day it only watches — so you can see what it would have blocked before it blocks anything.</p>
+          <p style="margin:0 0 32px;font-size:19px;line-height:1.6;color:#c8cbcf;max-width:52ch;text-wrap:pretty">One small program on your Linux server. It reads the log files you already have, shows you who is knocking, and blocks the ones that are attacking. For the first day it only watches, so you can see what it would have blocked before it blocks anything.</p>
 
           <div id="install" style="position:relative;border:1px solid rgba(255,255,255,0.16);background:#0d0d0d;margin-bottom:22px">
             <i style="position:absolute;top:-6px;left:-6px;width:11px;height:11px;border-top:1px solid #94bce3;border-left:1px solid #94bce3"></i>
@@ -123,7 +132,7 @@
               <span style="width:8px;height:8px;border:1px solid #5d5d60;display:block"></span>
               <span style="width:8px;height:8px;border:1px solid #5d5d60;display:block"></span>
             </span>
-            <span style="margin-left:6px">root@web-01 — breachharbor agent run</span>
+            <span style="margin-left:6px">root@web-01: breachharbor agent run</span>
           </div>
           <pre style="position:relative;margin:0;padding:18px 14px 22px;overflow-x:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:clamp(10.5px,1.05vw,13px);line-height:1.9;color:#c8cbcf;white-space:pre"><code><div><span style="color:#7a7a7d">14:02:11</span> <span style="color:#94bce3">ready  </span> tailing sshd, nginx, fail2ban</div><div><span style="color:#7a7a7d">14:02:11</span> <span style="color:#94bce3">mode   </span> observe · 23h 58m to enforcement</div><div><span style="color:#7a7a7d">14:04:39</span> <span style="color:#e8e9ea">seen   </span> 45.148.10.72   sshd  18 fails/60s</div><div><span style="color:#7a7a7d">14:04:39</span> <span style="color:#d98b8b">would  </span> block 45.148.10.72  <span style="color:#7a7a7d">(limit 10/60s)</span></div><div><span style="color:#7a7a7d">14:06:02</span> <span style="color:#e8e9ea">seen   </span> 103.75.190.14  nginx 404 sweep ×212</div><div><span style="color:#7a7a7d">14:06:02</span> <span style="color:#d98b8b">would  </span> block 103.75.190.14 <span style="color:#7a7a7d">(feed scanner)</span></div><div><span style="color:#7a7a7d">14:09:20</span> <span style="color:#e8e9ea">seen   </span> 82.64.31.9     sshd  key ok · allow</div><div><span style="color:#7a7a7d">14:11:47</span> <span style="color:#94bce3">summary</span> 1,284 seen / 6 flagged / 0 blocked</div><div><span style="color:#5d8fb8">$</span> <span style="display:inline-block;width:7px;height:13px;background:#94bce3;vertical-align:-2px;animation:bhblink 1.1s steps(1) infinite"></span></div></code></pre>
         </div>
@@ -304,10 +313,10 @@
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:0.16em;text-transform:uppercase;color:#9aa0a6;margin-bottom:10px">Community</div>
           <div style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:42px;line-height:1;color:#ffffff;margin-bottom:26px">Free forever</div>
           <ul style="list-style:none;margin:0 0 30px;padding:0;display:grid;gap:12px;font-size:16px;color:#c8cbcf">
-            <li style="display:flex;gap:11px"><span style="color:#5d8fb8">—</span>The agent, the server and the dashboard</li>
-            <li style="display:flex;gap:11px"><span style="color:#5d8fb8">—</span>Community blocklist, refreshed continuously</li>
-            <li style="display:flex;gap:11px"><span style="color:#5d8fb8">—</span>Unlimited machines you own</li>
-            <li style="display:flex;gap:11px"><span style="color:#5d8fb8">—</span>GPL-3.0, no seat count, no telemetry gate</li>
+            <li style="display:flex;gap:11px"><span style="color:#5d8fb8">•</span>The agent, the server and the dashboard</li>
+            <li style="display:flex;gap:11px"><span style="color:#5d8fb8">•</span>Community blocklist, refreshed continuously</li>
+            <li style="display:flex;gap:11px"><span style="color:#5d8fb8">•</span>Unlimited machines you own</li>
+            <li style="display:flex;gap:11px"><span style="color:#5d8fb8">•</span>GPL-3.0, no seat count, no telemetry gate</li>
           </ul>
           <a href="https://github.com/Dyneteq/Breach-Harbor" class="btn-outline" style="display:inline-block;border:1px solid rgba(255,255,255,0.22);color:#e8e9ea;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:16px;letter-spacing:0.1em;text-transform:uppercase;padding:11px 22px">Get the source</a>
         </div>
@@ -320,10 +329,10 @@
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:0.16em;text-transform:uppercase;color:#94bce3;margin-bottom:10px">Business license</div>
           <div style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:42px;line-height:1;color:#ffffff;margin-bottom:26px">Pricing on request</div>
           <ul style="list-style:none;margin:0 0 22px;padding:0;display:grid;gap:12px;font-size:16px;color:#c8cbcf">
-            <li style="display:flex;gap:11px"><span style="color:#94bce3">—</span>Embed, redistribute or run Breach Harbor without GPL obligations</li>
-            <li style="display:flex;gap:11px"><span style="color:#94bce3">—</span>Priority support, direct line to the maintainer</li>
-            <li style="display:flex;gap:11px"><span style="color:#94bce3">—</span>Custom threat feed integrations</li>
-            <li style="display:flex;gap:11px"><span style="color:#94bce3">—</span>Deployment help on your fleet</li>
+            <li style="display:flex;gap:11px"><span style="color:#94bce3">•</span>Embed, redistribute or run Breach Harbor without GPL obligations</li>
+            <li style="display:flex;gap:11px"><span style="color:#94bce3">•</span>Priority support, direct line to the maintainer</li>
+            <li style="display:flex;gap:11px"><span style="color:#94bce3">•</span>Custom threat feed integrations</li>
+            <li style="display:flex;gap:11px"><span style="color:#94bce3">•</span>Deployment help on your fleet</li>
           </ul>
           <p style="margin:0 0 24px;font-size:15px;color:#9aa0a6;text-wrap:pretty">Open a licensing thread on GitHub and a person answers, usually within a working day.</p>
           <a href="https://github.com/Dyneteq/Breach-Harbor/discussions/categories/licensing" class="btn-primary" style="display:inline-block;position:relative;background:#94bce3;color:#10161c;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:16px;letter-spacing:0.1em;text-transform:uppercase;padding:12px 24px">
@@ -344,7 +353,7 @@
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:44px;align-items:start">
         <div>
           <p style="font-family:'Barlow Condensed',sans-serif;font-weight:500;font-size:clamp(26px,3.2vw,36px);line-height:1.15;color:#ffffff;margin:0 0 20px;max-width:20ch">Breach Harbor is free, and it stays free.</p>
-          <p style="margin:0 0 16px;font-size:17px;line-height:1.6;color:#a8adb3;max-width:50ch;text-wrap:pretty">There is no company behind it — one maintainer, evenings and weekends. Sponsorship pays for the build machines, the signing infrastructure and the hours that go into keeping the blocklist honest.</p>
+          <p style="margin:0 0 16px;font-size:17px;line-height:1.6;color:#a8adb3;max-width:50ch;text-wrap:pretty">There is no company behind it: one maintainer, evenings and weekends. Sponsorship pays for the build machines, the signing infrastructure and the hours that go into keeping the blocklist honest.</p>
           <p style="margin:0;font-size:17px;line-height:1.6;color:#a8adb3;max-width:50ch;text-wrap:pretty">If you cannot sponsor, a star and a good bug report are worth nearly as much.</p>
         </div>
         <div style="display:grid;gap:1px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.12)">
@@ -390,7 +399,7 @@
           <div style="display:flex;gap:16px;padding:15px 18px;border-bottom:1px solid rgba(255,255,255,0.1)"><dt style="font-family:ui-monospace,monospace;font-size:12px;color:#94bce3;min-width:96px;margin:0">SYSTEM</dt><dd style="font-size:16px;color:#c8cbcf;margin:0">Linux, kernel 4.19 or newer</dd></div>
           <div style="display:flex;gap:16px;padding:15px 18px;border-bottom:1px solid rgba(255,255,255,0.1)"><dt style="font-family:ui-monospace,monospace;font-size:12px;color:#94bce3;min-width:96px;margin:0">ARCH</dt><dd style="font-size:16px;color:#c8cbcf;margin:0">x86-64 and arm64</dd></div>
           <div style="display:flex;gap:16px;padding:15px 18px;border-bottom:1px solid rgba(255,255,255,0.1)"><dt style="font-family:ui-monospace,monospace;font-size:12px;color:#94bce3;min-width:96px;margin:0">FIREWALL</dt><dd style="font-size:16px;color:#c8cbcf;margin:0">nftables or iptables</dd></div>
-          <div style="display:flex;gap:16px;padding:15px 18px;border-bottom:1px solid rgba(255,255,255,0.1)"><dt style="font-family:ui-monospace,monospace;font-size:12px;color:#94bce3;min-width:96px;margin:0">LOGS</dt><dd style="font-size:16px;color:#c8cbcf;margin:0">sshd, nginx, fail2ban — journald or files</dd></div>
+          <div style="display:flex;gap:16px;padding:15px 18px;border-bottom:1px solid rgba(255,255,255,0.1)"><dt style="font-family:ui-monospace,monospace;font-size:12px;color:#94bce3;min-width:96px;margin:0">LOGS</dt><dd style="font-size:16px;color:#c8cbcf;margin:0">sshd, nginx, fail2ban (journald or files)</dd></div>
           <div style="display:flex;gap:16px;padding:15px 18px;border-bottom:1px solid rgba(255,255,255,0.1)"><dt style="font-family:ui-monospace,monospace;font-size:12px;color:#94bce3;min-width:96px;margin:0">FOOTPRINT</dt><dd style="font-size:16px;color:#c8cbcf;margin:0">One binary, no runtime, no database</dd></div>
           <div style="display:flex;gap:16px;padding:15px 18px"><dt style="font-family:ui-monospace,monospace;font-size:12px;color:#94bce3;min-width:96px;margin:0">LICENSE</dt><dd style="font-size:16px;color:#c8cbcf;margin:0">GPL-3.0, signed and checksummed releases</dd></div>
         </dl>
